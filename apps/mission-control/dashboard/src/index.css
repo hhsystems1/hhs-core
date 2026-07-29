@@ -1,0 +1,313 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #070b18;
+}
+
+.mc-app {
+  background:
+    radial-gradient(900px 650px at 12% 10%, rgba(0, 255, 160, 0.16), transparent 60%),
+    radial-gradient(850px 650px at 88% 22%, rgba(56, 181, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #04070f 0%, #070b18 44%, #050813 100%);
+}
+
+.mc-topbar {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(7, 11, 24, 0.85);
+  box-shadow: 0 24px 70px -44px rgba(0, 0, 0, 0.9);
+  padding: 16px;
+}
+
+.mc-page {
+  min-width: 0;
+}
+
+.mc-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 18px;
+}
+
+.mc-hero h2 {
+  margin-top: 4px;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.mc-hero p {
+  margin-top: 8px;
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 14px;
+}
+
+.mc-eyebrow {
+  color: rgba(134, 239, 172, 0.9);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.mc-hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mc-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #34d399;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.8);
+}
+
+.mc-label {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mc-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 12px 14px;
+  color: white;
+  outline: none;
+}
+
+.mc-input:focus {
+  border-color: rgba(52, 211, 153, 0.42);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.08);
+}
+
+.mc-primary-button,
+.mc-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  transition: opacity 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.mc-primary-button {
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: linear-gradient(135deg, #059669, #0284c7);
+  color: white;
+}
+
+.mc-secondary-button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.mc-primary-button:disabled,
+.mc-secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.mc-primary-button:not(:disabled):active,
+.mc-secondary-button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.mc-alert {
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 18px;
+  background: rgba(248, 113, 113, 0.1);
+  padding: 12px 14px;
+  color: #fecaca;
+  font-size: 14px;
+}
+
+.mc-chat-window {
+  height: min(54vh, 520px);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 14px;
+}
+
+.mc-message {
+  max-width: 84%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+}
+
+.mc-message + .mc-message {
+  margin-top: 10px;
+}
+
+.mc-message-user {
+  margin-left: auto;
+  background: rgba(5, 150, 105, 0.22);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.mc-message-agent {
+  margin-right: auto;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mc-message-meta {
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mc-empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.mc-list-row {
+  display: block;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mc-list-row-active {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(5, 150, 105, 0.14);
+}
+
+.mc-sidebar {
+  width: 200px;
+  min-width: 200px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: #070b18;
+}
+
+.mc-nav-active {
+  background: rgba(5, 150, 105, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.mc-bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #070b18;
+  padding: 6px 8px 10px;
+  overflow-x: auto;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.mc-bottom-nav-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 7px 2px;
+  color: rgba(255, 255, 255, 0.62);
+  text-decoration: none;
+}
+
+.mc-bottom-nav-item span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.mc-bottom-nav-item small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.mc-bottom-nav-item-active {
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #d1fae5;
+  background: rgba(5, 150, 105, 0.16);
+}
+
+@media (max-width: 640px) {
+  .mc-topbar {
+    border-radius: 20px;
+    padding: 14px;
+  }
+
+  .mc-hero {
+    flex-direction: column;
+    border-radius: 20px;
+  }
+
+  .mc-hero h2 {
+    font-size: 24px;
+  }
+
+  .mc-chat-window {
+    height: 48vh;
+  }
+
+  .mc-message {
+    max-width: 94%;
+  }
+}

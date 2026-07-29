@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fusion-bg: #020914;
+  --color-fusion-bg2: #06172B;
+  --color-fusion-blue: #0057D9;
+  --color-fusion-blue-light: #0A66FF;
+  --color-fusion-blue-glow: #1A7AFF;
+  --color-fusion-card: #FFFFFF;
+  --color-fusion-card-soft: #F8FAFC;
+  --color-fusion-border: #D9E2EF;
+  --color-fusion-border-light: #E6EDF5;
+  --color-fusion-text: #07172E;
+  --color-fusion-text-muted: #5C6B82;
+  --color-fusion-success: #16A34A;
+  --color-fusion-warning: #F59E0B;
+  --color-fusion-danger: #DC2626;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #020914 0%, #06172B 100%);
+  color: #07172E;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mini-chart {
+  width: 100%;
+  height: 60px;
+}
+
+.mini-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9E2EF;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5C6B82;
+}
