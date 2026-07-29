@@ -1,0 +1,17 @@
+{
+  "name": "hhs-core",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "apps/mission-control/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:crm": "npm run dev -w @hhs/crm",
+    "dev:mission-api": "npm run dev -w @hhs/mission-api",
+    "dev:mission-dash": "npm run dev -w @hhs/mission-dashboard",
+    "build:crm": "npm run build -w @hhs/crm",
+    "build:mission-api": "npm run build -w @hhs/mission-api",
+    "build:mission-dash": "npm run build -w @hhs/mission-dashboard"
+  }
+}
