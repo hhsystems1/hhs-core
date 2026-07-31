@@ -1,0 +1,17 @@
+import { AgentJob } from '@hhs/agent-core/schemas';
+import { submitCommandToAgent } from './orchestrator';
+
+export async function submitCommandToAgent(command: any): Promise<AgentJob> {
+  // Direct implementation would go here (will be expanded later)
+  return {
+    id: 'placeholder-uuid',
+    tenantId: command.tenantId,
+    agentId: command.actor,
+    capability: command.command,
+    status: 'queued',
+    approvalRequired: command.approvalRequired,
+    input: command.payload,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}

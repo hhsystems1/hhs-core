@@ -1,0 +1,20 @@
+import { z } from 'zod';
+import { AgentCommand } from '@hhs/agent-core/schemas';
+
+export const commandSchema = z.object({
+  tenantId: z.string().uuid(),
+  command: z.string().min(1),
+  actor: z.string().min(1),
+  approvalRequired: z.boolean().default(false),
+  payload: z.any()
+});
+
+// Helper to validate command payload
+export async function validateSchema(schema: any, payload: any) {
+  try {
+    await schema.parse(payload);
+    return { success: true, data: payload };
+  } catch (err: any) {
+    return { success: false, error: err.errors.map(e => e.message).join('; ') };
+  }
+}

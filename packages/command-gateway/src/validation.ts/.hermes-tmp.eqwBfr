@@ -1,0 +1,15 @@
+import { z } from 'zod';
+import { commandSchema } from './validation';
+
+export async function validateCommand(payload: any) {
+  try {
+    await commandSchema.parse(payload);
+    return { success: true, data: payload };
+  } catch (err: any) {
+    console.error('Command validation failed:', err.errors);
+    return {
+      success: false,
+      error: err.errors.map((e: any) => e.message).join('; ')
+    };
+  }
+}

@@ -15,3 +15,7 @@
     "build:mission-dash": "npm run build -w @hhs/mission-dashboard"
   }
 }
+{
+  "scripts": {
+    "dev:command-gateway": "cd packages/command-gateway && ts-node-esm src/index.ts"
+  }

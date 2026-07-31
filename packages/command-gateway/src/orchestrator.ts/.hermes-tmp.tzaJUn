@@ -1,0 +1,24 @@
+import { AgentJob } from '@hhs/agent-core/schemas';
+import { v4 as uuidv4 } from 'uuid';
+
+let pendingApprovals: Map<string, any> = new Map();
+
+export async function storePendingApproval(command: any): Promise<string> {
+  pendingApprovals.set(command.id, command);
+  return command.id;
+}
+
+export async function submitCommandToAgent(command: any): Promise<AgentJob> {
+  // In a real implementation, this would enqueue the job in the database
+  // and return the job ID
+  return {
+    id: uuidv4(),
+    tenantId: command.tenantId,
+    agentId: command.actor,
+    capability: command.command,
+    status: 'queued',
+    approvalRequired: command.approvalRequired,
+    input: command.payload,
+    createdAt: new Date().toISOString(),
+  };
+}
