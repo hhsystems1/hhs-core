@@ -14,6 +14,7 @@ import { registerContextRoutes } from './contextRoutes.js';
 import { getDefaultTenant, requireTenantContext } from './tenantContext.js';
 import { initWebSocket, getIO } from './ws.js';
 import twilio from 'twilio';
+import { registerCommandRoutes } from './commandRoutes.js'; // <-- NEW IMPORT
 
 const PORT = process.env.PORT || 3001;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve('./uploads');
