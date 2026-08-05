@@ -1,4 +1,5 @@
 import { AgentJob, AgentCommand, AgentJobStatus } from './schemas';
+import { eventBus } from '@hhs/event-bus';
 
 export class AgentOrchestrator {
   static validateCommand(command: any): { success: boolean; error?: string; data?: AgentCommand } {
@@ -14,7 +15,7 @@ export class AgentOrchestrator {
   static async createJob(command: AgentCommand): Promise<AgentJob> {
     // This is where the connection to the Unified Database occurs
     // It would call the database to insert into agent_jobs
-    return {
+    const job: AgentJob = {
       id: 'placeholder-uuid',
       tenantId: command.tenantId,
       agentId: command.actor,
@@ -25,5 +26,23 @@ export class AgentOrchestrator {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    // Publish job created event
+    eventBus.publish('job.created', { jobId: job.id, tenantId: job.tenantId });
+    
+    return job;
+  }
+
+  static async updateJobStatus(jobId: string, status: AgentJobStatus, result?: any) {
+    // In a real implementation, this would update the DB
+    console.log(`[AgentOrchestrator] Updating job ${jobId} to status: ${status}`);
+    
+    // Publish status change event
+    eventBus.publish(`job.${status}`, { 
+      jobId, 
+      status, 
+      result, 
+      timestamp: new Date().toISOString() 
+    });
   }
 }
