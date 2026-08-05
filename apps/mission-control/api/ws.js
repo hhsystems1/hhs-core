@@ -1,4 +1,5 @@
 import { Server as SocketIOServer } from 'socket.io';
+import { eventBus } from '@hhs/event-bus';
 
 let io = null;
 
@@ -36,6 +37,28 @@ export function initWebSocket(httpServer) {
     socket.on('disconnect', () => {
       console.log(`ws: client disconnected (${socket.id})`);
     });
+  });
+
+  // --- Event Bus Integration ---
+  // Listen for agent job events and broadcast them over WebSockets
+  eventBus.subscribe('job.created', (payload) => {
+    console.log(`[WS] Broadcasting job.created: ${payload.jobId}`);
+    broadcast('agent:job_created', payload);
+  });
+
+  eventBus.subscribe('job.running', (payload) => {
+    console.log(`[WS] Broadcasting job.running: ${payload.jobId}`);
+    broadcast('agent:job_running', payload);
+  });
+
+  eventBus.subscribe('job.completed', (payload) => {
+    console.log(`[WS] Broadcasting job.completed: ${payload.jobId}`);
+    broadcast('agent:job_completed', payload);
+  });
+
+  eventBus.subscribe('job.failed', (payload) => {
+    console.log(`[WS] Broadcasting job.failed: ${payload.jobId}`);
+    broadcast('agent:job_failed', payload);
   });
 
   return io;
