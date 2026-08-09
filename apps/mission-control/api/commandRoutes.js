@@ -75,7 +75,7 @@ export function registerCommandRoutes(app, pool) {
         `;
         const approvalRes = await pool.query(approvalInsert, [job.id, req.tenant.id]);
         const approvalId = approvalRes.rows[0].id;
-        return res.status(202).json({ ok: true, commandId: approvalId });
+        return res.status(202).json({ ok: true, commandId: approvalId, jobId: job.id });
       }
 
       // 2.5 If no approval required, just return the job id

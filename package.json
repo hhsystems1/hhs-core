@@ -9,13 +9,10 @@
   "scripts": {
     "dev:crm": "npm run dev -w @hhs/crm",
     "dev:mission-api": "npm run dev -w @hhs/mission-api",
-    "dev:mission-dash": "npm run dev -w @hhs/mission-dashboard",
+    "dev:mission-dash": "npm run build -w @hhs/mission-dashboard",
     "build:crm": "npm run build -w @hhs/crm",
     "build:mission-api": "npm run build -w @hhs/mission-api",
-    "build:mission-dash": "npm run build -w @hhs/mission-dashboard"
-  }
-}
-{
-  "scripts": {
+    "build:mission-dash": "npm run build -w @hhs/mission-dashboard",
     "dev:command-gateway": "cd packages/command-gateway && ts-node-esm src/index.ts"
   }
+}

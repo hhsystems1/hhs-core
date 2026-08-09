@@ -149,18 +149,17 @@ create table if not exists approvals (
 -- These helpers live in packages/database/src/helpers.ts
 -- -----------------------------------------------------------------
 -- INSERT helper
-function dbInsert(table: string, data: any) {
-  return knexInsert(knex, table, data);
-}
+-- function dbInsert(table: string, data: any) {
+--   return knexInsert(knex, table, data);
+-- }
 -- SELECT helper
-function dbGet(table: string, id: any) {
-  return knexSelect(knex, table, id);
-}
+-- function dbGet(table: string, id: any) {
+--   return knexSelect(knex, table, id);
+-- }
 -- DELETE helper
-function dbDelete(table: string, id: any) {
-  return knexDelete(knex, table, id);
-}
+-- function dbDelete(table: string, id: any) {
+--   return knexDelete(knex, table, id);
+-- }
 -- END of helper functions
 -- -----------------------------------------------------------------
-```
 

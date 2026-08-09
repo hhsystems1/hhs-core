@@ -128,10 +128,80 @@ app.post('/api/auth/logout', async (req, res) => {
   const sessionId = getBearerSessionId(req);
   if (sessionId) sessions.delete(sessionId);
   res.json({ ok: true });
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// --- Health ---
-app.get('/health', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const r = await pool.query('select 1 as ok');
     res.json({ ok: true, db: r.rows[0].ok });
@@ -218,8 +288,179 @@ app.get('/api/status', async (req, res) => {
 
 // --- Phase 8+: Mission Control Lite (read-only visibility layer)
 
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 // 1) Activity Feed (events_v2)
 app.get('/api/activity', async (req, res) => {
+
+  try {
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+    const q = `
+      select 
+        id, 
+        tenant_id, 
+        agent_id, 
+        capability, 
+        status, 
+        approval_required, 
+        input, 
+        result, 
+        created_at, 
+        updated_at 
+      from agent_jobs 
+      where tenant_id = $1 
+      order by created_at desc
+    `;
+    const r = await pool.query(q, [req.tenant.id]);
+    res.json({ ok: true, jobs: r.rows });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
+
   try {
     const hours = Math.max(1, Math.min(168, Number(req.query.hours || 24))); // 1h..168h
     const level = req.query.level ? String(req.query.level) : null;
@@ -258,10 +499,80 @@ app.get('/api/activity', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// 2) Review Queue View (review_queue join artifacts + anchors)
-app.get('/api/review-queue', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const status = req.query.status ? String(req.query.status) : null;
     const params = [];
@@ -303,10 +614,80 @@ app.get('/api/review-queue', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// 3) System Status View (counts + timestamps)
-app.get('/api/system-status', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const [
       artifacts,
@@ -403,10 +784,80 @@ app.get('/api/tools', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// Run View: recent runs + filters
-app.get('/api/runs', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const tool_id = req.query.tool_id ? String(req.query.tool_id) : null;
     const status = req.query.status ? String(req.query.status) : null;
@@ -451,10 +902,80 @@ app.get('/api/runs', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// Live Flow View: group related runs by root_run_id
-app.get('/api/flows', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const root_run_id = req.query.root_run_id ? String(req.query.root_run_id) : null;
     const limit = Math.max(1, Math.min(200, Number(req.query.limit || 25)));
@@ -689,10 +1210,80 @@ app.post('/api/search', async (req, res) => {
   }
 
   res.json({ ok: true, mode: 'keyword', results: r.rows });
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
 
-app.get('/api/search', async (req, res) => {
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const q = String(req.query.q || '').trim();
     if (!q) return res.json({ ok: true, results: [] });
@@ -745,10 +1336,80 @@ const SUBAGENT_MODELS = {
     fallbacks: ['ollama/kimi-k2.5:cloud', 'ollama/glm-5:cloud'],
     description: 'Content creation, summarization, and drafting'
   }
-};
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
 
-// --- Subagent Control ---
-app.get('/api/subagents', async (req, res) => {
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     res.json({ ok: true, agents: SUBAGENT_MODELS });
   } catch (e) {
@@ -857,10 +1518,80 @@ app.post('/api/subagents/:sessionId/message', async (req, res) => {
   }
 });
 
-// --- Model Management ---
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
 
-// List available models from config
-app.get('/api/models', async (req, res) => {
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
     const data = fs.readFileSync(configPath, 'utf-8');
@@ -886,10 +1617,80 @@ app.get('/api/models', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+// --- Phase 8+: Mission Control Lite (read-only visibility layer)
+
+// New Route: Fetch a single job with its full run history
+app.get('/api/v1/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    // 1. Get the job details
+    const jobRes = await pool.query(
+      'SELECT * FROM agent_jobs WHERE id = $1 AND tenant_id = $2',
+      [id, req.tenant.id]
+    );
+
+    if (jobRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    const job = jobRes.rows[0];
+
+    // 2. Get the run history (the sequence of steps)
+    const runsRes = await pool.query(
+      'SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY step_index ASC, created_at ASC',
+      [id]
+    );
+
+    // 3. Get any associated approvals
+    const approvalRes = await pool.query(
+      'SELECT * FROM approvals WHERE command_id = $1',
+      [id]
+    );
+
+    res.json({ 
+      ok: true, 
+      job, 
+      runs: runsRes.rows, 
+      approval: approvalRes.rows[0] || null 
+    });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
 });
 
-// Get current agent configuration
-app.get('/api/agents/config', async (req, res) => {
+// New Route: Update job status (Retry/Cancel)
+app.post('/api/v1/jobs/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!req.tenant?.id) {
+      return res.status(401).json({ ok: false, error: 'tenant context required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE agent_jobs SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id',
+      [status, id, req.tenant.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+
+    res.json({ ok: true, jobId: id, status });
+  } catch (e) {
+    console.error('⚡ /api/v1/jobs/:id/status error:', e);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// 1) Activity Feed (events_v2)
+app.get('/api/activity', async (req, res) => {
+
   try {
     const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
     const data = fs.readFileSync(configPath, 'utf-8');
