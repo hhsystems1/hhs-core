@@ -1,5 +1,4 @@
 [build]
-  base = "apps/mission-control"
   command = "npm run build -w @hhs/mission-dashboard"
   publish = "apps/mission-control/dashboard/dist"
 
