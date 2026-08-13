@@ -6,6 +6,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssMinify: 'esbuild',
   },
   server: {
     host: '0.0.0.0',
