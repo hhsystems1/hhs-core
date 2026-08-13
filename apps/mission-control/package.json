@@ -2,6 +2,9 @@
   "name": "@hhs/mission-control",
   "private": true,
   "version": "0.0.0",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
   "scripts": {
     "build": "npm run build -w @hhs/mission-dashboard"
   }
