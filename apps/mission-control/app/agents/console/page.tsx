@@ -1,6 +1,8 @@
+'use client';
+
 import { useEffect, useMemo, useState } from 'react';
-import { ShellCard } from '../components/ShellCard';
-import { fetchJson, formatWhen } from '../lib/api';
+import { ShellCard } from '@/components/ShellCard'; // Assuming components are moved or linked
+import { fetchJson, formatWhen } from '@/lib/api';
 
 type AgentConfig = {
   name: string;
@@ -72,7 +74,7 @@ export default function AgentConsolePage() {
   const [selectedModel, setSelectedModel] = useState('');
   const [message, setMessage] = useState('');
   const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [activeSession, _setActiveSession] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -158,17 +160,17 @@ export default function AgentConsolePage() {
         });
       }
 
-      // Refactored to use the durable Command Gateway
+      // NEW: Using the durable Command Gateway instead of sync spawn
       const result = await fetchJson<{ ok: boolean; jobId?: string; commandId?: string }>(
         '/api/v1/commands',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            tenantId: '00000000-0000-0000-0000-000000000000', // This should come from a real auth context in prod
+            tenantId: '00000000-0000-0000-0000-000000000000', // Placeholder
             command: task,
             actor: selectedAgent,
-            approvalRequired: false, // default to false for console; can be toggled in UI
+            approvalRequired: false,
             payload: { task },
           }),
         }
@@ -187,9 +189,8 @@ export default function AgentConsolePage() {
             meta: `${agents[selectedAgent]?.name || selectedAgent} • ${selectedModel}`,
           },
         ]);
-        // Optional: window.location.href = `/agents/board`;
       } else {
-        throw new Error('Failed to create job');
+        throw new Error(result.error || 'Failed to create job');
       }
 
       localStorage.removeItem('mission-control:task');
@@ -213,7 +214,7 @@ export default function AgentConsolePage() {
         <div>
           <div className="mc-eyebrow">Mission Control</div>
           <h2>Agent Console</h2>
-          <p>Choose an agent, choose the model, run work, and inspect old OpenClaw sessions from one mobile-friendly surface. This is the control room, not the Telegram workaround.</p>
+          <p>Choose an agent, choose the model, run work, and inspect old OpenClaw sessions from one mobile-friendly surface.</p>
         </div>
         <div className="mc-hero-status">
           <span className="mc-live-dot" />
