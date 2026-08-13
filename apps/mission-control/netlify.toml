@@ -1,7 +1,7 @@
 [build]
   base = "dashboard"
   command = "npm run build"
-  publish = "dist"
+  publish = "dashboard/dist"
 
 # Set VITE_API_URL to your production API server URL in Netlify dashboard.
 # Example: https://your-api-server.com
