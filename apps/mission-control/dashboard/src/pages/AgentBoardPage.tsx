@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchJson } from '../lib/api';
-import { AgentJobCard, AgentJob } from '../components/agents/AgentJobCard';
+import { AgentJobCard } from '../components/agents/AgentJobCard';
+import type { AgentJob } from '../components/agents/AgentJobCard';
 
 type Column = {
   id: string;

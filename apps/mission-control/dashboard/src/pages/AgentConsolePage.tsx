@@ -72,7 +72,7 @@ export default function AgentConsolePage() {
   const [selectedModel, setSelectedModel] = useState('');
   const [message, setMessage] = useState('');
   const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [activeSession, setActiveSession] = useState<string | null>(null);
+  const [activeSession, _setActiveSession] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -189,7 +189,7 @@ export default function AgentConsolePage() {
         ]);
         // Optional: window.location.href = `/agents/board`;
       } else {
-        throw new Error(result.error || 'Failed to create job');
+        throw new Error('Failed to create job');
       }
 
       localStorage.removeItem('mission-control:task');

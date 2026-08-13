@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export function JobStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
