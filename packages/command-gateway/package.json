@@ -14,16 +14,15 @@
     "cors": "^2.8.5",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
-    "zod": "^3.23.0",
-    "@hhs/agent-core": "workspace:*",
-    "@hhs/shared-ui": "workspace:*"
+    "zod": "^4.3.6",
+    "@hhs/agent-core": "0.0.1",
+    "@hhs/shared-ui": "0.0.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.13",
     "@types/cors": "^2.8.14",
     "@types/jsonwebtoken": "^9.0.5",
-    "@types/helmet": "^7.0.9",
     "typescript": "~6.0.2"
   }
 }
