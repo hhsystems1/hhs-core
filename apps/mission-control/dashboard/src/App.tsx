@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { clearStoredSession, getAuthHeaders } from './lib/api';
+import { apiUrl } from './lib/config';
 
 import Login from './pages/Login';
 import HhsHome from './pages/HhsHome';
@@ -55,7 +56,7 @@ function AppRoutes() {
 
     let cancelled = false;
     setCheckingSession(true);
-    fetch('/api/auth/me', { headers: getAuthHeaders() })
+    fetch(apiUrl('/api/auth/me'), { headers: getAuthHeaders() })
       .then((res) => {
         if (res.status === 401) clearStoredSession();
       })

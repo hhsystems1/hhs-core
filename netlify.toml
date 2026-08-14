@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "apps/mission-control/dashboard/dist"
 
+# Mission Control needs a production API origin at build time.
+# Set VITE_API_URL in Netlify to the public API server, e.g. https://api.example.com
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

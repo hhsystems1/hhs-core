@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../lib/config';
 
 type SearchResult = {
   type: 'person' | 'contact' | 'account' | 'opportunity' | 'route';
@@ -60,9 +61,9 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
       const filtered = ROUTES.filter((r) => r.label.toLowerCase().includes(q));
 
       Promise.all([
-        fetch(`/api/v1/crm/people?q=${encodeURIComponent(q)}&limit=5`).then((r) => r.json()).catch(() => ({ people: [] })),
-        fetch(`/api/v1/crm/organizations?q=${encodeURIComponent(q)}&limit=5`).then((r) => r.json()).catch(() => ({ organizations: [] })),
-        fetch(`/api/v1/crm/contacts?q=${encodeURIComponent(q)}&limit=5`).then((r) => r.json()).catch(() => ({ contacts: [] })),
+        fetch(apiUrl(`/api/v1/crm/people?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ people: [] })),
+        fetch(apiUrl(`/api/v1/crm/organizations?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ organizations: [] })),
+        fetch(apiUrl(`/api/v1/crm/contacts?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ contacts: [] })),
       ]).then(([peopleRes, orgRes, contactRes]) => {
         const items: SearchResult[] = [...filtered];
         for (const p of (peopleRes as any).people || []) items.push({ type: 'person', id: p.id, label: p.full_name || 'Person', detail: p.primary_email || p.primary_phone });
