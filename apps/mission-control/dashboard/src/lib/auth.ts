@@ -1,24 +1,28 @@
-import type { User } from '@supabase/supabase-js';
-
 const SESSION_KEY = 'session';
 const USER_KEY = 'user';
 export const AUTH_EVENT = 'mission-control:auth-changed';
+
+export interface StoredUser {
+  id?: string;
+  email?: string;
+  user_metadata?: { full_name?: string };
+}
 
 export function getStoredToken(): string | null {
   return localStorage.getItem(SESSION_KEY);
 }
 
-export function getStoredUser(): User | null {
+export function getStoredUser(): StoredUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as User;
+    return JSON.parse(raw) as StoredUser;
   } catch {
     return null;
   }
 }
 
-export function setStoredSession(token: string, user: User) {
+export function setStoredSession(token: string, user: StoredUser) {
   localStorage.setItem(SESSION_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event(AUTH_EVENT));

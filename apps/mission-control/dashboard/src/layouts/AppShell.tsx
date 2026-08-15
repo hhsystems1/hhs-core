@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { clearStoredSession, getStoredUser } from '../lib/auth';
-import { supabase } from '../lib/supabase';
 
 type SidekickContext = {
   route: string;
@@ -75,7 +74,6 @@ export function AppShell() {
   }, [loc.pathname]);
 
   const handleLogout = () => {
-    if (supabase) void supabase.auth.signOut();
     clearStoredSession();
     navigate('/login', { replace: true });
   };

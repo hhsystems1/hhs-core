@@ -1,5 +1,6 @@
 import { apiUrl } from './config';
 import { clearStoredSession, getStoredToken } from './auth';
+import { isLocalToken } from './localAuth';
 
 export function getAuthHeaders(extra: HeadersInit = {}): HeadersInit {
   const session = getStoredToken();
@@ -14,7 +15,7 @@ export async function fetchJson<T>(url: string, options: RequestInit = {}): Prom
     ...options,
     headers: getAuthHeaders(options.headers || {}),
   });
-  if (r.status === 401) clearStoredSession();
+  if (r.status === 401 && !isLocalToken(getStoredToken())) clearStoredSession();
   if (!r.ok) throw new Error(`HTTP ${r.status} for ${fullUrl}`);
   return (await r.json()) as T;
 }

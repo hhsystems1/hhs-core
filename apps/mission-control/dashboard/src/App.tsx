@@ -1,9 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { clearStoredSession, getAuthHeaders } from './lib/api';
-import { apiUrl } from './lib/config';
 import { onAuthChanged } from './lib/auth';
-import { supabase } from './lib/supabase';
 
 import Login from './pages/Login';
 import HhsHome from './pages/HhsHome';
@@ -35,7 +32,6 @@ import Settings from './pages/Settings';
 function AppRoutes() {
   const location = useLocation();
   const [session, setSession] = useState<string | null>(() => localStorage.getItem('session'));
-  const [checkingSession, setCheckingSession] = useState(() => !!localStorage.getItem('session'));
 
   useEffect(() => {
     const syncSession = () => setSession(localStorage.getItem('session'));
@@ -47,45 +43,6 @@ function AppRoutes() {
       window.removeEventListener('storage', syncSession);
     };
   }, []);
-
-  useEffect(() => {
-    const currentSession = localStorage.getItem('session');
-    setSession(currentSession);
-    if (!currentSession || location.pathname === '/login') {
-      setCheckingSession(false);
-      return;
-    }
-
-    let cancelled = false;
-    setCheckingSession(true);
-    (async () => {
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session && !cancelled) clearStoredSession();
-      } else {
-        try {
-          const res = await fetch(apiUrl('/api/auth/me'), { headers: getAuthHeaders() });
-          if (res.status === 401) clearStoredSession();
-        } catch {
-          clearStoredSession();
-        }
-      }
-    })().finally(() => {
-      if (!cancelled) setCheckingSession(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.pathname]);
-
-  if (checkingSession && location.pathname !== '/login') {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
-        Checking session…
-      </div>
-    );
-  }
 
   if (location.pathname === '/login') {
     return session ? <Navigate to="/" replace /> : <Login />;

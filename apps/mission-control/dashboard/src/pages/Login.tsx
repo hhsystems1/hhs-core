@@ -1,51 +1,32 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { setStoredSession } from '../lib/auth';
+import { authenticateLocal } from '../lib/localAuth';
 
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname?: string } } };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      if (!supabase) {
-        throw new Error(
-          'Missing Supabase configuration. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify.'
-        );
-      }
-
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError || !data.session) {
-        throw new Error(signInError?.message || 'Login failed');
-      }
-
-      setStoredSession(data.session.access_token, data.session.user);
-      const nextPath = location.state?.from?.pathname || '/';
-      navigate(nextPath, { replace: true });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    const result = authenticateLocal(username, password);
+    if (!result) {
+      setError('Invalid username or password');
+      return;
     }
-  };
 
-  const setupWarning = isSupabaseConfigured
-    ? null
-    : 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify to enable login.';
+    setLoading(true);
+    setStoredSession(result.token, result.user);
+    const nextPath = location.state?.from?.pathname || '/';
+    navigate(nextPath, { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
@@ -70,20 +51,14 @@ export default function Login() {
               </div>
             )}
 
-            {setupWarning && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 text-amber-400 text-sm">
-                {setupWarning}
-              </div>
-            )}
-
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Username</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-4 py-2.5 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                placeholder="you@example.com"
+                placeholder="hhs"
                 required
               />
             </div>
