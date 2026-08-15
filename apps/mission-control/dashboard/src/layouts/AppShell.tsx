@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
+import { clearStoredSession, getStoredUser } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 type SidekickContext = {
   route: string;
@@ -68,19 +70,13 @@ export function AppShell() {
   const context = useMemo(() => deriveContext(loc.pathname), [loc.pathname]);
 
   const userLabel = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      if (!raw) return null;
-      const user = JSON.parse(raw);
-      return user?.name || user?.email || null;
-    } catch {
-      return null;
-    }
+    const user = getStoredUser();
+    return user?.user_metadata?.full_name || user?.email || null;
   }, [loc.pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem('session');
-    localStorage.removeItem('user');
+    if (supabase) void supabase.auth.signOut();
+    clearStoredSession();
     navigate('/login', { replace: true });
   };
 

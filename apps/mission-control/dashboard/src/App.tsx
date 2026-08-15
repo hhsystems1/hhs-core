@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { useEffect, useState } from 'react';
 import { clearStoredSession, getAuthHeaders } from './lib/api';
 import { apiUrl } from './lib/config';
+import { onAuthChanged } from './lib/auth';
+import { supabase } from './lib/supabase';
 
 import Login from './pages/Login';
 import HhsHome from './pages/HhsHome';
@@ -37,12 +39,12 @@ function AppRoutes() {
 
   useEffect(() => {
     const syncSession = () => setSession(localStorage.getItem('session'));
+    const unsubscribe = onAuthChanged(syncSession);
     window.addEventListener('storage', syncSession);
-    window.addEventListener('mission-control:unauthorized', syncSession);
     syncSession();
     return () => {
+      unsubscribe();
       window.removeEventListener('storage', syncSession);
-      window.removeEventListener('mission-control:unauthorized', syncSession);
     };
   }, []);
 
@@ -56,14 +58,21 @@ function AppRoutes() {
 
     let cancelled = false;
     setCheckingSession(true);
-    fetch(apiUrl('/api/auth/me'), { headers: getAuthHeaders() })
-      .then((res) => {
-        if (res.status === 401) clearStoredSession();
-      })
-      .catch(() => clearStoredSession())
-      .finally(() => {
-        if (!cancelled) setCheckingSession(false);
-      });
+    (async () => {
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session && !cancelled) clearStoredSession();
+      } else {
+        try {
+          const res = await fetch(apiUrl('/api/auth/me'), { headers: getAuthHeaders() });
+          if (res.status === 401) clearStoredSession();
+        } catch {
+          clearStoredSession();
+        }
+      }
+    })().finally(() => {
+      if (!cancelled) setCheckingSession(false);
+    });
 
     return () => {
       cancelled = true;

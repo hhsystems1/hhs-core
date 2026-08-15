@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { apiUrl } from '../lib/config';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { setStoredSession } from '../lib/auth';
 
 
 export default function Login() {
@@ -17,32 +18,22 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch(apiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const raw = await res.text();
-      let data: { ok?: boolean; session?: string; user?: unknown; error?: string } = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch {
-        const preview = raw ?? '';
+      if (!supabase) {
         throw new Error(
-          `Login API did not return JSON. Check the API server or VITE_API_URL. Response was: ${preview.slice(0, 180)}`
+          'Missing Supabase configuration. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify.'
         );
       }
 
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Login failed');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError || !data.session) {
+        throw new Error(signInError?.message || 'Login failed');
       }
 
-      if (!data.session || !data.user) {
-        throw new Error('Login succeeded but the server did not return a session.');
-      }
-
-      localStorage.setItem('session', data.session);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      setStoredSession(data.session.access_token, data.session.user);
       const nextPath = location.state?.from?.pathname || '/';
       navigate(nextPath, { replace: true });
     } catch (err: any) {
@@ -51,6 +42,10 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  const setupWarning = isSupabaseConfigured
+    ? null
+    : 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify to enable login.';
 
   return (
     <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
@@ -72,6 +67,12 @@ export default function Login() {
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 text-red-400 text-sm">
                 {error}
+              </div>
+            )}
+
+            {setupWarning && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 text-amber-400 text-sm">
+                {setupWarning}
               </div>
             )}
 

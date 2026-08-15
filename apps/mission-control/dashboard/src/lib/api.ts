@@ -1,15 +1,12 @@
 import { apiUrl } from './config';
+import { clearStoredSession, getStoredToken } from './auth';
 
 export function getAuthHeaders(extra: HeadersInit = {}): HeadersInit {
-  const session = localStorage.getItem('session');
+  const session = getStoredToken();
   return session ? { ...extra, Authorization: `Bearer ${session}` } : extra;
 }
 
-export function clearStoredSession() {
-  localStorage.removeItem('session');
-  localStorage.removeItem('user');
-  window.dispatchEvent(new Event('mission-control:unauthorized'));
-}
+export { clearStoredSession };
 
 export async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const fullUrl = apiUrl(url);

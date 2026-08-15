@@ -2,8 +2,12 @@
   command = "npm run build"
   publish = "apps/mission-control/dashboard/dist"
 
-# Mission Control needs a production API origin at build time.
-# Set VITE_API_URL in Netlify to the public API server, e.g. https://api.example.com
+# Mission Control login uses Supabase Auth.
+# Set these in Netlify (Site settings -> Environment variables):
+#   VITE_SUPABASE_URL      e.g. https://xxxx.supabase.co
+#   VITE_SUPABASE_ANON_KEY your project anon key
+# Optional VITE_API_URL only if you host the Express API separately
+# (apps/mission-control/api); without it, data endpoints use this origin.
 
 [[redirects]]
   from = "/*"
