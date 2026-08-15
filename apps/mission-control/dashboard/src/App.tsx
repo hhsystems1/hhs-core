@@ -36,11 +36,9 @@ function AppRoutes() {
   useEffect(() => {
     const syncSession = () => setSession(localStorage.getItem('session'));
     const unsubscribe = onAuthChanged(syncSession);
-    window.addEventListener('storage', syncSession);
     syncSession();
     return () => {
       unsubscribe();
-      window.removeEventListener('storage', syncSession);
     };
   }, []);
 
