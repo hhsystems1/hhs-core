@@ -229,63 +229,6 @@ body {
   border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
-.mc-bottom-nav {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 45;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: #070b18;
-  padding: 6px 8px 10px;
-  overflow-x: auto;
-  max-height: 130px;
-  overflow-y: auto;
-}
-
-.mc-bottom-nav-item {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 7px 2px;
-  color: rgba(255, 255, 255, 0.62);
-  text-decoration: none;
-}
-
-.mc-bottom-nav-item span {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.mc-bottom-nav-item small {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.mc-bottom-nav-item-active {
-  border-color: rgba(52, 211, 153, 0.3);
-  color: #d1fae5;
-  background: rgba(5, 150, 105, 0.16);
-}
-
 @media (max-width: 640px) {
   .mc-topbar {
     border-radius: 20px;

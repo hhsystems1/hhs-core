@@ -3,13 +3,25 @@ import { useEffect, useState } from 'react';
 import { onAuthChanged } from './lib/auth';
 
 import Login from './pages/Login';
-import HhsHome from './pages/HhsHome';
-import CrmPage from './pages/CrmPage';
+import MissionControlHome from './pages/MissionControlHome';
 import CrmPersonTimelinePage from './pages/CrmPersonTimelinePage';
-import CrmTaskReviewQueuePage from './pages/CrmTaskReviewQueuePage';
 import AgentConsolePage from './pages/AgentConsolePage';
-import MissionControlPage from './pages/MissionControlPage';
 import { AppShell } from './layouts/AppShell';
+
+import CrmLayout from './pages/crm/CrmLayout';
+import CrmHome from './pages/crm/CrmHome';
+import CrmCustomers from './pages/crm/CrmCustomers';
+import CrmOpportunities from './pages/crm/CrmOpportunities';
+import CrmFeed from './pages/crm/CrmFeed';
+import CrmTasksPage from './pages/crm/CrmTasksPage';
+import CrmAnalytics from './pages/crm/CrmAnalytics';
+import CrmSettings from './pages/crm/CrmSettings';
+
+import AgentsLayout from './pages/agents/AgentsLayout';
+import WorkflowCanvas from './pages/agents/WorkflowCanvas';
+import AgentJobDetailPage from './pages/agents/AgentJobDetailPage';
+import AgentBoardPage from './pages/AgentBoardPage';
+
 import SolarShell from './pages/solar/SolarShell';
 import SolarOverview from './pages/solar/SolarOverview';
 import SolarLeads from './pages/solar/SolarLeads';
@@ -53,12 +65,29 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<HhsHome />} />
-        <Route path="/mission-control" element={<MissionControlPage />} />
-        <Route path="/crm" element={<CrmPage />} />
-        <Route path="/crm/tasks" element={<CrmTaskReviewQueuePage />} />
-        <Route path="/crm/people/:personId/timeline" element={<CrmPersonTimelinePage />} />
-        <Route path="/agents" element={<AgentConsolePage />} />
+        <Route path="/" element={<MissionControlHome />} />
+        <Route path="/mission-control" element={<Navigate to="/" replace />} />
+        <Route path="/chat" element={<AgentConsolePage />} />
+
+        <Route path="/crm" element={<CrmLayout />}>
+          <Route index element={<CrmHome />} />
+          <Route path="customers" element={<CrmCustomers />} />
+          <Route path="opportunities" element={<CrmOpportunities />} />
+          <Route path="leads" element={<Navigate to="/solar/leads" replace />} />
+          <Route path="feed" element={<CrmFeed />} />
+          <Route path="tasks" element={<CrmTasksPage />} />
+          <Route path="analytics" element={<CrmAnalytics />} />
+          <Route path="settings" element={<CrmSettings />} />
+          <Route path="people/:personId/timeline" element={<CrmPersonTimelinePage />} />
+        </Route>
+
+        <Route path="/agents" element={<AgentsLayout />}>
+          <Route index element={<WorkflowCanvas />} />
+          <Route path="board" element={<AgentBoardPage />} />
+          <Route path="runs" element={<RunsPage title="Run Log" subtitle="Source: /api/runs" />} />
+          <Route path="flows" element={<FlowsPage title="Flow View" subtitle="Grouped by root_run_id" />} />
+          <Route path="jobs/:jobId" element={<AgentJobDetailPage />} />
+        </Route>
 
         <Route path="/solar" element={<SolarShell />}>
           <Route index element={<SolarOverview />} />

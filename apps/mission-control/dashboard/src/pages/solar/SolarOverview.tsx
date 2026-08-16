@@ -36,7 +36,7 @@ export default function SolarOverview() {
             <div className="text-sm font-semibold">Review-gated outreach</div>
             <div className="mt-1 text-sm text-white/55">Create CRM draft tasks before anything customer-facing.</div>
           </div>
-          <Tile title="Open Mission Control" subtitle="Chat with selected agent/model" to="/mission-control" />
+          <Tile title="Open Mission Control" subtitle="Chat with selected agent/model" to="/chat" />
         </div>
       </ShellCard>
     </div>

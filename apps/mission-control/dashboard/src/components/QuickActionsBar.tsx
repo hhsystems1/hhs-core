@@ -111,8 +111,8 @@ export default function QuickActionsBar({ contacts, selectedContactId, onSelectC
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 md:left-[200px] md:bottom-0 bottom-[68px]">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 pb-1">
+    <div>
+      <div className="max-w-7xl mx-auto">
         {error && (
           <div className="mb-1 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-2 text-xs text-red-100">{error}</div>
         )}

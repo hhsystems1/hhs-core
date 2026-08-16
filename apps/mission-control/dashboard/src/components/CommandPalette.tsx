@@ -11,11 +11,13 @@ type SearchResult = {
 };
 
 const ROUTES = [
+  { type: 'route' as const, id: 'home', label: 'Mission Control', to: '/' },
   { type: 'route' as const, id: 'crm', label: 'CRM Dashboard', to: '/crm' },
-  { type: 'route' as const, id: 'tasks', label: 'Task Review Queue', to: '/crm/tasks' },
+  { type: 'route' as const, id: 'tasks', label: 'CRM Task Queue', to: '/crm/tasks' },
   { type: 'route' as const, id: 'leads', label: 'Solar Leads', to: '/solar/leads' },
-  { type: 'route' as const, id: 'agents', label: 'Agent Console', to: '/agents' },
-  { type: 'route' as const, id: 'mission-control', label: 'Mission Control', to: '/mission-control' },
+  { type: 'route' as const, id: 'chat', label: 'Agent Chat', to: '/chat' },
+  { type: 'route' as const, id: 'agents', label: 'Workflow Canvas', to: '/agents' },
+  { type: 'route' as const, id: 'board', label: 'Agent Job Board', to: '/agents/board' },
   { type: 'route' as const, id: 'system', label: 'System Status', to: '/system/status' },
   { type: 'route' as const, id: 'activity', label: 'Activity Feed', to: '/system/activity' },
 ];
@@ -68,7 +70,7 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
         const items: SearchResult[] = [...filtered];
         for (const p of (peopleRes as any).people || []) items.push({ type: 'person', id: p.id, label: p.full_name || 'Person', detail: p.primary_email || p.primary_phone });
         for (const c of (orgRes as any).organizations || []) items.push({ type: 'account', id: c.id, label: c.name || 'Account', detail: c.account_type });
-        for (const c of (contactRes as any).contacts || []) items.push({ type: 'contact', id: c.id, label: c.full_name || 'Contact', detail: c.primary_email || c.primary_phone });
+        for (const c of (contactRes as any).contacts || []) items.push({ type: 'contact', id: (c as any).source_person_id || c.id, label: c.full_name || 'Contact', detail: c.primary_email || c.primary_phone });
         setResults(items);
         setSelectedIdx(0);
       }).finally(() => setLoading(false));
@@ -81,9 +83,13 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
     if (item.type === 'route' && item.to) {
       navigate(item.to);
     } else if (item.type === 'person' || item.type === 'contact') {
-      onSelectPerson?.(item.id, item.label);
-    } else {
-      navigate('/crm');
+      if (onSelectPerson) {
+        onSelectPerson(item.id, item.label);
+      } else {
+        navigate(`/crm/people/${encodeURIComponent(item.id)}/timeline`);
+      }
+    } else if (item.type === 'account') {
+      navigate('/crm/customers');
     }
   };
 

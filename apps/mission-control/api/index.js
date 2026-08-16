@@ -532,26 +532,19 @@ app.get('/api/flows', async (req, res) => {
     if (root_run_id) {
       const q = `
         select
-          id as run_id,
+          id::text as run_id,
           tool_id,
-          null::text as task_summary,
-          null::text as task_type,
+          task_summary,
+          task_type,
           started_at,
           completed_at,
           status,
-          null::int as artifacts_created,
-          null::int as events_created,
-          null::boolean as review_item_created,
-          null::int as parent_run_id,
-          id as root_run_id,
-          null::int as sequence_index,
-          null::text as initiated_by,
-          null::text as decision_status,
-          null::boolean as promotion_applied,
-          null::boolean as external_action_taken,
-          error
+          coalesce(root_run_id, id)::text as root_run_id,
+          sequence_index,
+          initiated_by,
+          error as failure_reason
         from tool_run_log
-        where id::text = $1
+        where coalesce(root_run_id, id)::text = $1
         order by sequence_index asc nulls last, started_at asc nulls last, id asc
       `;
       const r = await pool.query(q, [root_run_id]);
@@ -564,41 +557,41 @@ app.get('/api/flows', async (req, res) => {
         select
           id,
           tool_id,
+          task_summary,
+          task_type,
           started_at,
           completed_at,
           status,
           error,
-          id as root_run_id,
-          null::int as sequence_index
+          coalesce(root_run_id, id) as root_run_id,
+          sequence_index
         from tool_run_log
       ), roots as (
         select distinct on (root_run_id)
           root_run_id,
+          task_summary as root_task_summary,
           started_at as root_started_at,
-          error,
-          status
+          error
         from normalized
-        order by root_run_id, started_at desc nulls last, id desc
+        order by root_run_id, sequence_index asc nulls last, started_at asc nulls last, id asc
       ), agg as (
         select
           root_run_id,
           count(*)::int as runs,
           bool_or(status='failed') as any_failed,
-          bool_or(status='partial') as any_partial
+          bool_or(status='partial') as any_partial,
+          bool_or(status='running') as any_running
         from normalized
         group by 1
       )
       select
         r.root_run_id,
-        null::text as root_task_summary,
+        r.root_task_summary,
         r.root_started_at,
         a.runs,
-        null::int as artifacts_created,
-        null::int as events_created,
         a.any_failed,
         a.any_partial,
-        false as any_pending_review,
-        false as any_external_action,
+        a.any_running,
         r.error
       from roots r
       join agg a on a.root_run_id=r.root_run_id
