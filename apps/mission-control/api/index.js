@@ -14,7 +14,6 @@ import { registerContextRoutes } from './contextRoutes.js';
 import { getDefaultTenant, requireTenantContext } from './tenantContext.js';
 import { initWebSocket, getIO } from './ws.js';
 import { startJobWorker } from './worker.js';
-import twilio from 'twilio';
 import { registerCommandRoutes } from './commandRoutes.js'; // <-- NEW IMPORT
 import { registerSystemRoutes } from './systemRoutes.js';
 
@@ -36,11 +35,6 @@ const pool = new Pool({
 });
 
 const upload = multer({ dest: UPLOAD_DIR });
-
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || '';
-const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
 
 // --- Auth ---
 const sessions = new Map();
@@ -176,7 +170,6 @@ app.get('/health', async (req, res) => {
 
 // Protect API routes (except explicit auth endpoints above)
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/twilio/')) return next();
   const token = getBearerSessionId(req);
   if (!token) return res.status(401).json({ ok: false, error: 'auth required' });
 
@@ -1018,87 +1011,6 @@ app.post('/api/agents/:agentType/model', async (req, res) => {
     res.json({ ok: true, agentType, model, fallbacks, note: 'Config updated. Restart may be needed for some changes.' });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
-  }
-});
-
-app.get('/api/twilio/status', async (req, res) => {
-  res.json({
-    ok: true,
-    configured: Boolean(twilioClient && TWILIO_PHONE_NUMBER),
-    phoneNumber: TWILIO_PHONE_NUMBER || null,
-    accountSidSet: Boolean(TWILIO_ACCOUNT_SID),
-  });
-});
-
-app.post('/api/twilio/sms', async (req, res) => {
-  res.status(403).json({
-    ok: false,
-    error: 'direct SMS sending is disabled; create a CRM draft task for review instead',
-    code: 'customer_facing_action_requires_review',
-  });
-});
-
-app.post('/api/twilio/voice', async (req, res) => {
-  try {
-    const { message } = req.body;
-    const say = message || 'Hello from Mission Control.';
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${say.replace(/[<&>]/g, '')}</Say></Response>`;
-    res.type('text/xml').send(twiml);
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
-
-app.post('/api/twilio/incoming', async (req, res) => {
-  try {
-    const from = String(req.body.From || '').replace(/[^\d+]/g, '');
-    const body = String(req.body.Body || '').trim();
-    const messageSid = String(req.body.MessageSid || '');
-    if (!from || !body) return res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
-
-    const tenantResult = await pool.query('select id from workspaces where name = $1 limit 1', ['default']);
-    if (!tenantResult.rows.length) return res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
-    const tenantId = tenantResult.rows[0].id;
-
-    let contactResult = await pool.query(
-      `select id, full_name, source_person_id from crm_contacts where tenant_id = $1 and (primary_phone = $2 or primary_phone like $3) limit 1`,
-      [tenantId, from, `%${from.replace(/^\+?1?/, '')}`]
-    );
-
-    let contactId;
-    let contactName;
-    if (contactResult.rows.length) {
-      contactId = contactResult.rows[0].id;
-      contactName = contactResult.rows[0].full_name;
-    } else {
-      contactResult = await pool.query(
-        `insert into crm_contacts (tenant_id, full_name, primary_phone, lifecycle_stage, status)
-         values ($1, $2, $3, 'lead', 'active') returning id`,
-        [tenantId, `Lead ${from.slice(-4)}`, from]
-      );
-      contactId = contactResult.rows[0].id;
-      contactName = null;
-    }
-
-    await pool.query(
-      `insert into crm_timeline_events (tenant_id, contact_id, event_type, event_level, source_channel, source_link_id, title, description, payload_json)
-       values ($1, $2, 'message.sms.received', 'customer_communication', 'twilio_sms', $3, 'SMS received from customer', $4, $5::jsonb)`,
-      [tenantId, contactId, messageSid, body, JSON.stringify({ sid: messageSid, from, body, direction: 'inbound' })]
-    );
-
-    await pool.query(
-      `update crm_contacts set metadata = coalesce(metadata, '{}'::jsonb) || $3::jsonb, updated_at = now()
-       where tenant_id = $1 and id = $2`,
-      [tenantId, contactId, JSON.stringify({ last_inbound_sms_sid: messageSid, last_inbound_sms_at: new Date().toISOString(), last_inbound_sms_from: from })]
-    );
-
-    const io = getIO();
-    if (io) io.emit('message:sent', { channel: 'twilio_sms', contact_id: contactId, contact_name: contactName, event_type: 'message.sms.received', direction: 'inbound' });
-
-    res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
-  } catch (e) {
-    console.error('Inbound SMS error:', e);
-    res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
   }
 });
 

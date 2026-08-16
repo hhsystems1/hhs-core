@@ -29,17 +29,10 @@ type OpenClawConfigResponse = {
   ok?: boolean;
 };
 
-type TwilioStatusResponse = {
-  configured?: boolean;
-  phoneNumber?: string;
-  accountSidSet?: boolean;
-};
-
 export default function Settings() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [agentConfig, setAgentConfig] = useState<AgentConfigResponse | null>(null);
   const [openClaw, setOpenClaw] = useState<OpenClawConfigResponse | null>(null);
-  const [twilio, setTwilio] = useState<TwilioStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,14 +41,12 @@ export default function Settings() {
       fetchJson<{ models: ModelInfo[] }>('/api/models'),
       fetchJson<AgentConfigResponse>('/api/agents/config'),
       fetchJson<OpenClawConfigResponse>('/api/openclaw/config'),
-      fetchJson<TwilioStatusResponse>('/api/twilio/status'),
     ])
-      .then(([modelResult, agentResult, openClawResult, twilioResult]) => {
+      .then(([modelResult, agentResult, openClawResult]) => {
         if (cancelled) return;
         setModels(modelResult.models || []);
         setAgentConfig(agentResult);
         setOpenClaw(openClawResult);
-        setTwilio(twilioResult);
         setError(null);
       })
       .catch((e) => {
@@ -69,16 +60,14 @@ export default function Settings() {
   async function refresh() {
     setError(null);
     try {
-      const [modelResult, agentResult, openClawResult, twilioResult] = await Promise.all([
+      const [modelResult, agentResult, openClawResult] = await Promise.all([
         fetchJson<{ models: ModelInfo[] }>('/api/models'),
         fetchJson<AgentConfigResponse>('/api/agents/config'),
         fetchJson<OpenClawConfigResponse>('/api/openclaw/config'),
-        fetchJson<TwilioStatusResponse>('/api/twilio/status'),
       ]);
       setModels(modelResult.models || []);
       setAgentConfig(agentResult);
       setOpenClaw(openClawResult);
-      setTwilio(twilioResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -90,7 +79,7 @@ export default function Settings() {
     <div className="space-y-4 sm:space-y-6">
       <ShellCard title="Settings" subtitle="Runtime, model, and integration status" right={<button onClick={refresh} className="mc-secondary-button">Refresh</button>}>
         {error && <div className="mc-alert">{error}</div>}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="text-xs text-white/45">Models</div>
             <div className="mt-1 text-2xl font-bold">{models.length}</div>
@@ -100,33 +89,18 @@ export default function Settings() {
             <div className="mt-1 text-2xl font-bold">{providers.length}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="text-xs text-white/45">Twilio</div>
-            <div className="mt-1 text-2xl font-bold">{twilio?.configured ? 'Ready' : 'Off'}</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="text-xs text-white/45">Agent runtime</div>
             <div className="mt-1 text-2xl font-bold">{openClaw?.ok === false ? 'Check' : 'Loaded'}</div>
           </div>
         </div>
       </ShellCard>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-        <ShellCard title="Agent Defaults" subtitle="Current Mission Control model routing">
-          <Row label="Main model" value={agentConfig?.main?.model} />
-          <Row label="Main fallbacks" value={(agentConfig?.main?.fallbacks || []).join(', ')} />
-          <Row label="Subagent model" value={agentConfig?.subagents?.model} />
-          <Row label="Subagent fallbacks" value={(agentConfig?.subagents?.fallbacks || []).join(', ')} />
-        </ShellCard>
-
-        <ShellCard title="Twilio" subtitle="Phone integration status">
-          <Row label="Configured" value={twilio?.configured ? 'yes' : 'no'} />
-          <Row label="Phone number" value={twilio?.phoneNumber} />
-          <Row label="Account SID set" value={twilio?.accountSidSet ? 'yes' : 'no'} />
-          <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/10 p-4 text-sm text-emerald-100">
-            Customer-facing SMS remains blocked from direct send. Use CRM draft tasks and review approval.
-          </div>
-        </ShellCard>
-      </div>
+      <ShellCard title="Agent Defaults" subtitle="Current Mission Control model routing">
+        <Row label="Main model" value={agentConfig?.main?.model} />
+        <Row label="Main fallbacks" value={(agentConfig?.main?.fallbacks || []).join(', ')} />
+        <Row label="Subagent model" value={agentConfig?.subagents?.model} />
+        <Row label="Subagent fallbacks" value={(agentConfig?.subagents?.fallbacks || []).join(', ')} />
+      </ShellCard>
 
       <ShellCard title="Available Models" subtitle="Pulled from the agent runtime config">
         <div className="overflow-auto rounded-2xl border border-white/10 bg-black/20">

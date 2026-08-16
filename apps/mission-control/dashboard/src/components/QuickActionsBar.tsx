@@ -68,8 +68,16 @@ export default function QuickActionsBar({ contacts, selectedContactId, onSelectC
     if (!selectedPersonId || !selectedContact) return;
     const body = smsBody.trim();
     if (!body) return;
-    await tryDirectThenTask('SMS', `/api/v1/crm/people/${encodeURIComponent(selectedPersonId)}/messages/sms`, { body, to: selectedContact.primary_phone },
-      `Text ${selectedContact.full_name || 'CRM contact'}`, `Draft/send this Twilio SMS after review. Phone: ${selectedContact.primary_phone || 'missing'}\n\nMessage:\n${body}`);
+    setBusyAction('SMS'); setActionResult(null); setError(null);
+    try {
+      await queueApprovalTask(`Text ${selectedContact.full_name || 'CRM contact'}`,
+        `Draft/send this SMS after review. Phone: ${selectedContact.primary_phone || 'missing'}\n\nMessage:\n${body}`);
+      setActionResult({ ok: true, mode: 'approval_task', label: 'SMS queued as an internal CRM task for review approval.' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyAction(null);
+    }
     setExpandedAction(null);
   };
 

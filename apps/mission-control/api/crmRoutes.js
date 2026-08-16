@@ -1,11 +1,5 @@
-import twilio from 'twilio';
 import { clampLimit } from './tenantContext.js';
 import { getIO } from './ws.js';
-
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || '';
-const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
 
 function normalizePerson(row, tenantId) {
   return {
@@ -668,34 +662,17 @@ export function registerCrmRoutes(app, pool) {
       if (!body) return res.status(400).json({ ok: false, error: 'sms body required', code: 'sms_body_required' });
       const contact = await getContactForPerson(pool, tenantId, personId);
       if (!contact) return res.status(404).json({ ok: false, error: 'person not found', code: 'crm_person_not_found' });
-      const to = safeString(req.body?.to || contact.primary_phone, 80);
-      if (!to) return res.status(400).json({ ok: false, error: 'contact phone required', code: 'contact_phone_required' });
-      if (!twilioClient || !TWILIO_PHONE_NUMBER) {
-        return res.status(503).json({ ok: false, error: 'Twilio is not configured', code: 'twilio_not_configured' });
-      }
-
-      const message = await twilioClient.messages.create({ from: TWILIO_PHONE_NUMBER, to, body });
-      const timeline = await insertTimelineEvent(pool, tenantId, contact, {
-        event_type: 'message.sms.sent',
-        event_level: 'customer_communication',
-        source_channel: 'twilio_sms',
-        source_link_id: message.sid,
-        title: 'SMS sent to customer',
-        description: body,
-        payload: { sid: message.sid, status: message.status, to, from: TWILIO_PHONE_NUMBER },
+      const task = await insertCrmTask(pool, tenantId, contact, {
+        title: `Text ${contact.full_name || 'CRM contact'}`,
+        description: `Draft/send this SMS after review.\nTo: ${contact.primary_phone || 'missing'}\n\nMessage:\n${body}`,
+        priority: 'normal',
+        source: 'crm_sms_reply',
+        customer_facing: true,
+        external_action_taken: false,
       });
-      await pool.query(
-        `update crm_contacts
-         set metadata = coalesce(metadata, '{}'::jsonb) || $3::jsonb,
-             updated_at = now()
-         where tenant_id = $1 and id = $2`,
-        [tenantId, contact.id, JSON.stringify({ contact_status: 'contacted', last_sms_sid: message.sid, last_sms_at: new Date().toISOString() })]
-      );
-      const io = getIO();
-      if (io) io.emit('message:sent', { channel: 'twilio_sms', contact_id: contact.id, person_id: personId, contact_name: contact.full_name });
-      res.status(201).json({ ok: true, mode: 'twilio', message: { sid: message.sid, status: message.status }, event: normalizeTimelineEvent(timeline, tenantId) });
+      res.status(201).json({ ok: true, mode: 'approval_task', task: normalizeTask(task, tenantId) });
     } catch (e) {
-      res.status(500).json({ ok: false, error: String(e), code: 'crm_sms_send_failed' });
+      res.status(500).json({ ok: false, error: String(e), code: 'crm_sms_draft_failed' });
     }
   });
 
