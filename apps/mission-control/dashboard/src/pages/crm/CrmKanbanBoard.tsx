@@ -84,7 +84,7 @@ export default function CrmKanbanBoard({ onCardClick }: { onCardClick?: (type: s
   const [data, setData] = useState<KanbanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [_draggingId, setDraggingId] = useState<string | null>(null);
+  const [, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const dragCard = useRef<{ id: string; fromStage: string } | null>(null);
 
@@ -99,7 +99,20 @@ export default function CrmKanbanBoard({ onCardClick }: { onCardClick?: (type: s
   };
 
   useEffect(() => {
-    loadKanban();
+    let cancelled = false;
+    fetchJson<{ ok: boolean; columns: Record<string, KanbanCard[]>; stages: string[] }>('/api/v1/crm/kanban')
+      .then((result) => {
+        if (!cancelled) setData({ columns: result.columns, stages: result.stages });
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

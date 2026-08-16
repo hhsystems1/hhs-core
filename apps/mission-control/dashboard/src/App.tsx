@@ -38,7 +38,6 @@ import ActivityPage from './pages/system/ActivityPage';
 import FlowsPage from './pages/system/FlowsPage';
 import ToolsPage from './pages/system/ToolsPage';
 import AgentContextPage from './pages/AgentContextPage';
-import OpenClawControlPage from './pages/system/OpenClawControlPage';
 import Settings from './pages/Settings';
 
 function AppRoutes() {
@@ -107,7 +106,6 @@ function AppRoutes() {
         <Route path="/system/flows" element={<FlowsPage />} />
         <Route path="/system/runs" element={<RunsPage />} />
         <Route path="/system/tools" element={<ToolsPage />} />
-        <Route path="/openclaw" element={<OpenClawControlPage />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

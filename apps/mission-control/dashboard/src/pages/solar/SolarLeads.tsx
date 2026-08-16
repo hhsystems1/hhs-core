@@ -56,7 +56,20 @@ export default function SolarLeads() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    fetchJson<LeadInboxResponse>('/api/solar/leads')
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((e) => {
+        if (!cancelled) setData({ ok: false, leads: [], error: e instanceof Error ? e.message : String(e) });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchJson, formatWhen } from '../lib/api';
 
 type ContextEntry = {
@@ -32,18 +32,43 @@ export default function AgentContextPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<ContextEntry[] | null>(null);
 
-  const loadAgents = useCallback(async () => {
-    try {
-      const res = await fetchJson<{ agents: AgentSummary[] }>('/api/context/agents');
-      setAgents(res.agents || []);
-    } catch {
-      // non-critical
-    }
+  useEffect(() => {
+    let cancelled = false;
+    fetchJson<{ agents: AgentSummary[] }>('/api/context/agents')
+      .then((res) => {
+        if (!cancelled) setAgents(res.agents || []);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ limit: '100' });
+    if (searchText) params.set('q', searchText);
+    if (filterAgent) params.set('agent_id', filterAgent);
+    if (filterType) params.set('context_type', filterType);
+    fetchJson<{ entries: ContextEntry[] }>(`/api/context?${params.toString()}`)
+      .then((res) => {
+        if (!cancelled) {
+          setEntries(res.entries || []);
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchText, filterAgent, filterType]);
+
+  async function refreshEntries() {
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (searchText) params.set('q', searchText);
@@ -51,15 +76,11 @@ export default function AgentContextPage() {
       if (filterType) params.set('context_type', filterType);
       const res = await fetchJson<{ entries: ContextEntry[] }>(`/api/context?${params.toString()}`);
       setEntries(res.entries || []);
-    } catch (e: unknown) {
+      setError(null);
+    } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
     }
-  }, [searchText, filterAgent, filterType]);
-
-  useEffect(() => { loadAgents(); }, []);
-  useEffect(() => { loadEntries(); }, [loadEntries]);
+  }
 
   const loadSession = async (sessionId: string) => {
     try {
@@ -73,7 +94,7 @@ export default function AgentContextPage() {
   const deleteEntry = async (id: string) => {
     try {
       await fetchJson(`/api/context/${id}`, { method: 'DELETE' });
-      loadEntries();
+      void refreshEntries();
     } catch {
       // ignore
     }

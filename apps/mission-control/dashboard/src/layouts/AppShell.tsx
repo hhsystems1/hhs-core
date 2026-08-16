@@ -61,9 +61,6 @@ function deriveContext(pathname: string): SidekickContext {
   } else if (parts[0] === 'system') {
     workspace = 'system';
     page = parts[1] || null;
-  } else if (parts[0] === 'openclaw') {
-    workspace = 'system';
-    page = 'openclaw';
   } else if (parts[0] === 'settings') {
     workspace = 'system';
     page = 'settings';
@@ -98,7 +95,6 @@ const SYSTEM_NAV: NavItem[] = [
   { to: '/system/tools', label: 'Tools', icon: Wrench },
   { to: '/system/flows', label: 'Flows', icon: GitBranch },
   { to: '/system/context', label: 'Context', icon: BookOpenText },
-  { to: '/openclaw', label: 'OpenClaw', icon: Bot },
 ];
 
 function NavLinkItem({ item }: { item: NavItem }) {

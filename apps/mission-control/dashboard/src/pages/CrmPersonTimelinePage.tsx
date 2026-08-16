@@ -59,15 +59,17 @@ export default function CrmPersonTimelinePage() {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState('');
+  const [draftTitleInput, setDraftTitleInput] = useState('');
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
+
+  const draftTitle = draftTitleInput.trim()
+    ? draftTitleInput
+    : (person ? `Follow up with ${person.full_name || 'CRM contact'}` : '');
 
   useEffect(() => {
     if (!personId) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     Promise.all([
       fetchJson<{ person: CrmPerson }>(`/api/v1/crm/people/${personId}`),
@@ -77,6 +79,7 @@ export default function CrmPersonTimelinePage() {
         if (cancelled) return;
         setPerson(personResult.person || null);
         setTimeline(timelineResult.timeline || []);
+        setError(null);
       })
       .catch((e) => {
         if (!cancelled) setError(e?.message || String(e));
@@ -97,10 +100,6 @@ export default function CrmPersonTimelinePage() {
     return `Review ${latest}, then decide whether to create a follow-up task.`;
   }, [person, timeline]);
 
-  useEffect(() => {
-    if (person && !draftTitle) setDraftTitle(`Follow up with ${person.full_name || 'CRM contact'}`);
-  }, [person, draftTitle]);
-
   const createDraftTask = async () => {
     if (!personId || !draftTitle.trim()) return;
     setCreatingTask(true);
@@ -117,8 +116,8 @@ export default function CrmPersonTimelinePage() {
         }),
       });
       setDraftStatus('Draft task queued for approval.');
-    } catch (e: any) {
-      setError(e?.message || String(e));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setCreatingTask(false);
     }
@@ -195,7 +194,7 @@ export default function CrmPersonTimelinePage() {
               <div className="mt-3 space-y-2">
                 <input
                   value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
+                  onChange={(e) => setDraftTitleInput(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-sky-300/50"
                   placeholder="Internal task title"
                 />

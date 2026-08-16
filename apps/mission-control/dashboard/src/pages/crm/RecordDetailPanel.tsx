@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchJson, formatWhen } from '../../lib/api';
 
@@ -56,27 +56,31 @@ export default function RecordDetailPanel({ record, onClose }: { record: PanelRe
   const [newTaskPriority, setNewTaskPriority] = useState('normal');
   const [creatingTask, setCreatingTask] = useState(false);
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
     if (!record || record.type !== 'person') return;
-    setLoading(true);
+    let cancelled = false;
     const personId = record.id;
-    try {
-      const [personRes, timelineRes, tasksRes] = await Promise.all([
-        fetchJson<{ person: PersonDetail }>(`/api/v1/crm/people/${personId}`),
-        fetchJson<{ timeline: TimelineEvent[] }>(`/api/v1/crm/people/${personId}/timeline?limit=50`),
-        fetchJson<{ tasks: CrmTask[] }>(`/api/v1/crm/tasks?person_id=${personId}&limit=50`),
-      ]);
-      setPersonData(personRes.person);
-      setTimeline(timelineRes.timeline || []);
-      setTasks(tasksRes.tasks || []);
-    } catch {
-      setPersonData(null);
-    } finally {
-      setLoading(false);
-    }
+    Promise.all([
+      fetchJson<{ person: PersonDetail }>(`/api/v1/crm/people/${personId}`),
+      fetchJson<{ timeline: TimelineEvent[] }>(`/api/v1/crm/people/${personId}/timeline?limit=50`),
+      fetchJson<{ tasks: CrmTask[] }>(`/api/v1/crm/tasks?person_id=${personId}&limit=50`),
+    ])
+      .then(([personRes, timelineRes, tasksRes]) => {
+        if (cancelled) return;
+        setPersonData(personRes.person);
+        setTimeline(timelineRes.timeline || []);
+        setTasks(tasksRes.tasks || []);
+      })
+      .catch(() => {
+        if (!cancelled) setPersonData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [record]);
-
-  useEffect(() => { loadData(); }, [loadData]);
 
   const createTask = async () => {
     const title = newTaskTitle.trim();

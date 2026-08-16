@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ShellCard } from '../components/ShellCard';
-import { fetchJson, formatWhen } from '../lib/api';
+import { fetchJson, formatWhen, getTenantId } from '../lib/api';
 
 type AgentConfig = {
   name: string;
@@ -70,18 +70,21 @@ export default function AgentConsolePage() {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('coding');
   const [selectedModel, setSelectedModel] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(() => localStorage.getItem('mission-control:task') || '');
   const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [activeSession, _setActiveSession] = useState<string | null>(null);
+  const activeSession: string | null = null;
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusMessage] = useState<string | null>(() => {
+    const storedProject = localStorage.getItem('mission-control:project');
+    const storedTemplate = localStorage.getItem('mission-control:template');
+    return storedProject ? `Loaded brief for ${storedProject}${storedTemplate ? ` • ${storedTemplate}` : ''}` : null;
+  });
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     Promise.all([
       fetchJson<AgentsResponse>('/api/subagents'),
       fetchJson<ModelsResponse>('/api/models'),
@@ -112,24 +115,6 @@ export default function AgentConsolePage() {
     };
   }, []);
 
-  useEffect(() => {
-    const storedTask = localStorage.getItem('mission-control:task');
-    const storedProject = localStorage.getItem('mission-control:project');
-    const storedTemplate = localStorage.getItem('mission-control:template');
-
-    if (storedTask && !message.trim()) {
-      setMessage(storedTask);
-    }
-    if (storedProject) {
-      setStatusMessage(`Loaded brief for ${storedProject}${storedTemplate ? ` • ${storedTemplate}` : ''}`);
-    }
-  }, []);
-
-  useEffect(() => {
-    const model = agents[selectedAgent]?.model;
-    if (model) setSelectedModel(model);
-  }, [agents, selectedAgent]);
-
   const selectedHistory = useMemo(
     () => sessions.find((session) => sessionId(session) === selectedHistoryId) || sessions[0] || null,
     [selectedHistoryId, sessions]
@@ -158,6 +143,9 @@ export default function AgentConsolePage() {
         });
       }
 
+      const tenantId = await getTenantId();
+      if (!tenantId) throw new Error('Could not resolve tenant context — are you logged in?');
+
       // Refactored to use the durable Command Gateway
       const result = await fetchJson<{ ok: boolean; jobId?: string; commandId?: string }>(
         '/api/v1/commands',
@@ -165,7 +153,7 @@ export default function AgentConsolePage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            tenantId: '00000000-0000-0000-0000-000000000000', // This should come from a real auth context in prod
+            tenantId,
             command: task,
             actor: selectedAgent,
             approvalRequired: false, // default to false for console; can be toggled in UI
@@ -229,7 +217,15 @@ export default function AgentConsolePage() {
           <div className="space-y-4">
             <div>
               <label className="mc-label">Agent</label>
-              <select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} className="mc-input">
+              <select
+                value={selectedAgent}
+                onChange={(e) => {
+                  setSelectedAgent(e.target.value);
+                  const model = agents[e.target.value]?.model;
+                  if (model) setSelectedModel(model);
+                }}
+                className="mc-input"
+              >
                 {agentEntries.map(([key, agent]) => (
                   <option key={key} value={key}>
                     {agent.name}
@@ -287,7 +283,7 @@ export default function AgentConsolePage() {
           </div>
         </ShellCard>
 
-        <ShellCard title="Old Chats" subtitle="OpenClaw session history and compressed view">
+        <ShellCard title="Old Chats" subtitle="Previous agent sessions and compressed view">
           <div className="space-y-3">
             <button onClick={refreshSessions} className="mc-secondary-button w-full">Refresh history</button>
             <div className="max-h-52 overflow-y-auto space-y-2 pr-1">

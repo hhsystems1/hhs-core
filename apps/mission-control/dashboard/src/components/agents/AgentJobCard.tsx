@@ -8,8 +8,8 @@ export interface AgentJob {
   capability: string;
   status: string;
   approval_required: boolean;
-  input: any;
-  result: any;
+  input: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }

@@ -13,6 +13,7 @@ import { registerCrmRoutes } from './crmRoutes.js';
 import { registerContextRoutes } from './contextRoutes.js';
 import { getDefaultTenant, requireTenantContext } from './tenantContext.js';
 import { initWebSocket, getIO } from './ws.js';
+import { startJobWorker } from './worker.js';
 import twilio from 'twilio';
 import { registerCommandRoutes } from './commandRoutes.js'; // <-- NEW IMPORT
 
@@ -1101,6 +1102,17 @@ app.post('/api/twilio/incoming', async (req, res) => {
 
 const httpServer = http.createServer(app);
 initWebSocket(httpServer);
+
+// Background job worker — claims queued agent_jobs and executes them by
+// deploying subagents, recording per-step state in tool_run_log so the live
+// orchestration canvas can render real-time node transitions.
+startJobWorker({
+  pool,
+  broadcast: (event, data) => {
+    const io = getIO();
+    if (io) io.emit(event, data);
+  },
+});
 
 // SPA fallback (avoid path patterns; Express v5 + path-to-regexp is strict)
 // Serve Mission Control UI (built from dashboard)

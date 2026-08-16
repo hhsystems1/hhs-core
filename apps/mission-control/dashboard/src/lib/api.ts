@@ -26,3 +26,19 @@ export function formatWhen(iso?: string | null) {
   if (Number.isNaN(d.getTime())) return String(iso);
   return d.toLocaleString();
 }
+
+let cachedTenantId: string | null = null;
+
+export async function getTenantId(): Promise<string | null> {
+  if (cachedTenantId) return cachedTenantId;
+  try {
+    const res = await fetchJson<{ tenant?: { id?: string } }>('/api/v1/crm/people?limit=1');
+    if (res.tenant?.id) {
+      cachedTenantId = res.tenant.id;
+      return cachedTenantId;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}

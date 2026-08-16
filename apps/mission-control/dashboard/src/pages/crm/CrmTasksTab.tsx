@@ -61,7 +61,24 @@ export default function CrmTasksTab() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadTasks(); }, [filterReview, filterStatus]);
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ review_status: filterReview, limit: '100' });
+    if (filterStatus !== 'all') params.set('status', filterStatus);
+    fetchJson<{ tasks: CrmTask[] }>(`/api/v1/crm/tasks?${params.toString()}`)
+      .then((result) => {
+        if (!cancelled) setTasks(result.tasks || []);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filterReview, filterStatus]);
 
   const decide = async (taskId: string, decision: 'approved' | 'changes_requested' | 'rejected') => {
     setBusyTask(taskId);

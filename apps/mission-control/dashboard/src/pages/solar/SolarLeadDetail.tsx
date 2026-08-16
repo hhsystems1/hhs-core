@@ -48,8 +48,6 @@ export default function SolarLeadDetail() {
   useEffect(() => {
     if (!leadId) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     Promise.all([
       fetchJson<{ person: LeadPerson }>(`/api/v1/crm/people/${encodeURIComponent(leadId)}`),
       fetchJson<{ timeline: TimelineItem[] }>(`/api/v1/crm/people/${encodeURIComponent(leadId)}/timeline?limit=50`),
@@ -59,6 +57,7 @@ export default function SolarLeadDetail() {
         setPerson(personResult.person);
         setTimeline(timelineResult.timeline || []);
         setDraftTitle(`Follow up with ${personResult.person?.full_name || 'solar lead'}`);
+        setError(null);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));

@@ -10,9 +10,15 @@ function StatusPill(props: { ok: boolean; label: string }) {
   );
 }
 
+type TwilioStatusResponse = {
+  configured?: boolean;
+  phoneNumber?: string;
+  accountSidSet?: boolean;
+};
+
 export default function SolarSettings() {
   const [leadStatus, setLeadStatus] = useState<'checking' | 'ready' | 'error'>('checking');
-  const [twilio, setTwilio] = useState<any>(null);
+  const [twilio, setTwilio] = useState<TwilioStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -21,7 +27,7 @@ export default function SolarSettings() {
     try {
       const [leads, twilioStatus] = await Promise.all([
         fetchJson<{ ok: boolean; leads: unknown[] }>('/api/solar/leads?limit=1'),
-        fetchJson('/api/twilio/status'),
+        fetchJson<TwilioStatusResponse>('/api/twilio/status'),
       ]);
       setLeadStatus(leads.ok ? 'ready' : 'error');
       setTwilio(twilioStatus);
@@ -32,7 +38,25 @@ export default function SolarSettings() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    Promise.all([
+      fetchJson<{ ok: boolean; leads: unknown[] }>('/api/solar/leads?limit=1'),
+      fetchJson<TwilioStatusResponse>('/api/twilio/status'),
+    ])
+      .then(([leads, twilioStatus]) => {
+        if (cancelled) return;
+        setLeadStatus(leads.ok ? 'ready' : 'error');
+        setTwilio(twilioStatus);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setLeadStatus('error');
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

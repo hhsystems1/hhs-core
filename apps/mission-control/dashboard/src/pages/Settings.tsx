@@ -19,21 +19,61 @@ function Row(props: { label: string; value: string | number | boolean | null | u
   );
 }
 
+type AgentConfigResponse = {
+  ok?: boolean;
+  main?: { model?: string; fallbacks?: string[] };
+  subagents?: { model?: string; fallbacks?: string[] };
+};
+
+type OpenClawConfigResponse = {
+  ok?: boolean;
+};
+
+type TwilioStatusResponse = {
+  configured?: boolean;
+  phoneNumber?: string;
+  accountSidSet?: boolean;
+};
+
 export default function Settings() {
   const [models, setModels] = useState<ModelInfo[]>([]);
-  const [agentConfig, setAgentConfig] = useState<any>(null);
-  const [openClaw, setOpenClaw] = useState<any>(null);
-  const [twilio, setTwilio] = useState<any>(null);
+  const [agentConfig, setAgentConfig] = useState<AgentConfigResponse | null>(null);
+  const [openClaw, setOpenClaw] = useState<OpenClawConfigResponse | null>(null);
+  const [twilio, setTwilio] = useState<TwilioStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchJson<{ models: ModelInfo[] }>('/api/models'),
+      fetchJson<AgentConfigResponse>('/api/agents/config'),
+      fetchJson<OpenClawConfigResponse>('/api/openclaw/config'),
+      fetchJson<TwilioStatusResponse>('/api/twilio/status'),
+    ])
+      .then(([modelResult, agentResult, openClawResult, twilioResult]) => {
+        if (cancelled) return;
+        setModels(modelResult.models || []);
+        setAgentConfig(agentResult);
+        setOpenClaw(openClawResult);
+        setTwilio(twilioResult);
+        setError(null);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function refresh() {
     setError(null);
     try {
       const [modelResult, agentResult, openClawResult, twilioResult] = await Promise.all([
         fetchJson<{ models: ModelInfo[] }>('/api/models'),
-        fetchJson('/api/agents/config'),
-        fetchJson('/api/openclaw/config'),
-        fetchJson('/api/twilio/status'),
+        fetchJson<AgentConfigResponse>('/api/agents/config'),
+        fetchJson<OpenClawConfigResponse>('/api/openclaw/config'),
+        fetchJson<TwilioStatusResponse>('/api/twilio/status'),
       ]);
       setModels(modelResult.models || []);
       setAgentConfig(agentResult);
@@ -43,10 +83,6 @@ export default function Settings() {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
-
-  useEffect(() => {
-    refresh();
-  }, []);
 
   const providers = Array.from(new Set(models.map((model) => model.provider))).sort();
 
@@ -68,7 +104,7 @@ export default function Settings() {
             <div className="mt-1 text-2xl font-bold">{twilio?.configured ? 'Ready' : 'Off'}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="text-xs text-white/45">OpenClaw</div>
+            <div className="text-xs text-white/45">Agent runtime</div>
             <div className="mt-1 text-2xl font-bold">{openClaw?.ok === false ? 'Check' : 'Loaded'}</div>
           </div>
         </div>
@@ -92,7 +128,7 @@ export default function Settings() {
         </ShellCard>
       </div>
 
-      <ShellCard title="Available Models" subtitle="Pulled from OpenClaw config">
+      <ShellCard title="Available Models" subtitle="Pulled from the agent runtime config">
         <div className="overflow-auto rounded-2xl border border-white/10 bg-black/20">
           <table className="min-w-[760px] w-full text-left text-sm">
             <thead className="text-xs text-white/50">

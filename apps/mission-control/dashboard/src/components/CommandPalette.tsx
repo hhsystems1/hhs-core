@@ -10,6 +10,18 @@ type SearchResult = {
   to?: string;
 };
 
+type PersonSearch = {
+  people?: Array<{ id: string; full_name?: string; primary_email?: string; primary_phone?: string }>;
+};
+
+type OrgSearch = {
+  organizations?: Array<{ id: string; name?: string; account_type?: string }>;
+};
+
+type ContactSearch = {
+  contacts?: Array<{ id: string; source_person_id?: string; full_name?: string; primary_email?: string; primary_phone?: string }>;
+};
+
 const ROUTES = [
   { type: 'route' as const, id: 'home', label: 'Mission Control', to: '/' },
   { type: 'route' as const, id: 'crm', label: 'CRM Dashboard', to: '/crm' },
@@ -35,48 +47,46 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        if (open) {
+          setOpen(false);
+        } else {
+          setQuery('');
+          setResults(ROUTES);
+          setSelectedIdx(0);
+          setOpen(true);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
       }
       if (e.key === 'Escape') setOpen(false);
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      setQuery('');
-      setResults(ROUTES);
-      setSelectedIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
   }, [open]);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults(ROUTES);
-      return;
-    }
+    if (!query.trim()) return;
     const timer = setTimeout(() => {
       setLoading(true);
       const q = query.toLowerCase();
       const filtered = ROUTES.filter((r) => r.label.toLowerCase().includes(q));
 
       Promise.all([
-        fetch(apiUrl(`/api/v1/crm/people?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ people: [] })),
-        fetch(apiUrl(`/api/v1/crm/organizations?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ organizations: [] })),
-        fetch(apiUrl(`/api/v1/crm/contacts?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ contacts: [] })),
-      ]).then(([peopleRes, orgRes, contactRes]) => {
+        fetch(apiUrl(`/api/v1/crm/people?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ people: [] as PersonSearch['people'] })),
+        fetch(apiUrl(`/api/v1/crm/organizations?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ organizations: [] as OrgSearch['organizations'] })),
+        fetch(apiUrl(`/api/v1/crm/contacts?q=${encodeURIComponent(q)}&limit=5`)).then((r) => r.json()).catch(() => ({ contacts: [] as ContactSearch['contacts'] })),
+      ]).then(([peopleRes, orgRes, contactRes]: [PersonSearch, OrgSearch, ContactSearch]) => {
         const items: SearchResult[] = [...filtered];
-        for (const p of (peopleRes as any).people || []) items.push({ type: 'person', id: p.id, label: p.full_name || 'Person', detail: p.primary_email || p.primary_phone });
-        for (const c of (orgRes as any).organizations || []) items.push({ type: 'account', id: c.id, label: c.name || 'Account', detail: c.account_type });
-        for (const c of (contactRes as any).contacts || []) items.push({ type: 'contact', id: (c as any).source_person_id || c.id, label: c.full_name || 'Contact', detail: c.primary_email || c.primary_phone });
+        for (const p of peopleRes.people || []) items.push({ type: 'person', id: p.id, label: p.full_name || 'Person', detail: p.primary_email || p.primary_phone });
+        for (const c of orgRes.organizations || []) items.push({ type: 'account', id: c.id, label: c.name || 'Account', detail: c.account_type });
+        for (const c of contactRes.contacts || []) items.push({ type: 'contact', id: c.source_person_id || c.id, label: c.full_name || 'Contact', detail: c.primary_email || c.primary_phone });
         setResults(items);
         setSelectedIdx(0);
       }).finally(() => setLoading(false));
     }, 200);
     return () => clearTimeout(timer);
   }, [query]);
+
+  const displayedResults = query.trim() ? results : ROUTES;
 
   const handleSelect = (item: SearchResult) => {
     setOpen(false);
@@ -94,9 +104,9 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, results.length - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, displayedResults.length - 1)); }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx((i) => Math.max(i - 1, 0)); }
-    if (e.key === 'Enter' && results[selectedIdx]) { handleSelect(results[selectedIdx]); }
+    if (e.key === 'Enter' && displayedResults[selectedIdx]) { handleSelect(displayedResults[selectedIdx]); }
   };
 
   if (!open) return null;
@@ -115,8 +125,8 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
         </div>
         <div className="max-h-80 overflow-y-auto">
           {loading && <div className="px-4 py-3 text-xs text-white/40">Searching...</div>}
-          {!loading && results.length === 0 && <div className="px-4 py-3 text-xs text-white/40">No results</div>}
-          {results.map((item, i) => (
+          {!loading && displayedResults.length === 0 && <div className="px-4 py-3 text-xs text-white/40">No results</div>}
+          {displayedResults.map((item, i) => (
             <button key={`${item.type}-${item.id}`} onClick={() => handleSelect(item)}
               className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition ${
                 i === selectedIdx ? 'bg-sky-400/10 text-white' : 'text-white/70 hover:bg-white/5'
@@ -131,7 +141,7 @@ export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (i
               }`}>{item.type}</span>
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{item.label}</div>
-                {item.detail && <div className="text-xs text-white/40 truncate">{item.detail}</div>}
+                {'detail' in item && item.detail && <div className="text-xs text-white/40 truncate">{item.detail}</div>}
               </div>
             </button>
           ))}

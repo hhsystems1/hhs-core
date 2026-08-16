@@ -53,13 +53,14 @@ export function registerCommandRoutes(app, pool) {
       const jobInsert = `
         INSERT INTO agent_jobs (tenant_id, agent_id, capability, status,
                                 approval_required, input, created_at, updated_at)
-        VALUES ($1, $2, $3, 'queued', $4, $5, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
         RETURNING id, status;
       `;
       const jobVals = [
         req.tenant.id,          // tenant_id
         cmd.actor,              // agent_id
         cmd.command,            // capability
+        cmd.approvalRequired ? 'needs_approval' : 'queued', // status
         cmd.approvalRequired,   // approval_required
         JSON.stringify(cmd.payload) // input (as JSON string)
       ];
@@ -103,10 +104,11 @@ export function registerCommandRoutes(app, pool) {
       }
 
       if (approved) {
-        // Transition job to "running" and clean up the approval record
+        // Approve → release the job to the worker by resetting it to queued,
+        // then clean up the approval record.
         const updateJob = `
           UPDATE agent_jobs
-          SET status = 'running'
+          SET status = 'queued', updated_at = NOW()
           WHERE id = (SELECT command_id FROM approvals WHERE command_id = $1);
         `;
         await pool.query(updateJob, [id]);
@@ -114,8 +116,13 @@ export function registerCommandRoutes(app, pool) {
         await pool.query('DELETE FROM approvals WHERE command_id = $1', [id]);
         return res.status(200).json({ ok: true, jobId: id });
       } else {
-        // Explicit rejection – just delete the approval record
+        // Explicit rejection – delete the approval record and mark the job
+        // failed so the worker never picks it up.
         await pool.query('DELETE FROM approvals WHERE command_id = $1', [id]);
+        await pool.query(
+          `UPDATE agent_jobs SET status = 'failed', result = $2, updated_at = NOW() WHERE id = $1`,
+          [id, JSON.stringify({ rejected: true })]
+        );
         return res.status(200).json({ ok: true, message: 'Rejected' });
       }
     } catch (err) {
@@ -130,8 +137,13 @@ export function registerCommandRoutes(app, pool) {
   app.post('/api/v1/commands/:id/reject', async (req, res) => {
     try {
       const { id } = req.params;
-      // Simply delete the approval entry – the job stays in 'queued' state
+      // Delete the approval entry and mark the job failed so the worker
+      // never executes it.
       await pool.query('DELETE FROM approvals WHERE command_id = $1', [id]);
+      await pool.query(
+        `UPDATE agent_jobs SET status = 'failed', result = $2, updated_at = NOW() WHERE id = $1`,
+        [id, JSON.stringify({ rejected: true })]
+      );
       return res.status(200).json({ ok: true, message: 'Rejected' });
     } catch (err) {
       console.error('⚡ /api/v1/commands/:id/reject error:', err);

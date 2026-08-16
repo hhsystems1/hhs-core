@@ -61,6 +61,11 @@ export function initWebSocket(httpServer) {
     broadcast('agent:job_failed', payload);
   });
 
+  eventBus.subscribe('flow.updated', (payload) => {
+    console.log(`[WS] Broadcasting flow.updated: ${payload?.root_run_id}`);
+    broadcast('flow:updated', payload);
+  });
+
   return io;
 }
 

@@ -41,7 +41,18 @@ export default function CrmInboxTab() {
   };
 
   useEffect(() => {
-    loadInbox();
+    let cancelled = false;
+    fetchJson<{ ok: boolean; messages: InboxMessage[] }>('/api/v1/crm/inbox?limit=200')
+      .then((result) => {
+        if (!cancelled) setMessages(result.messages || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
