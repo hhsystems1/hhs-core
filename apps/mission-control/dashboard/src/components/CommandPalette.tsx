@@ -32,6 +32,9 @@ const ROUTES = [
   { type: 'route' as const, id: 'board', label: 'Agent Job Board', to: '/agents/board' },
   { type: 'route' as const, id: 'system', label: 'System Status', to: '/system/status' },
   { type: 'route' as const, id: 'activity', label: 'Activity Feed', to: '/system/activity' },
+  { type: 'route' as const, id: 'review', label: 'Review Queue', to: '/system/review' },
+  { type: 'route' as const, id: 'context', label: 'Agent Context', to: '/system/context' },
+  { type: 'route' as const, id: 'settings', label: 'Settings', to: '/system/settings' },
 ];
 
 export default function CommandPalette({ onSelectPerson }: { onSelectPerson?: (id: string, name: string) => void }) {

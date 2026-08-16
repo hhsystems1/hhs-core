@@ -6,9 +6,7 @@ import {
   Bot,
   ChevronDown,
   ClipboardCheck,
-  GitBranch,
   LayoutDashboard,
-  ListChecks,
   LogOut,
   Menu,
   MessageSquare,
@@ -17,7 +15,6 @@ import {
   Sun,
   Users,
   Workflow,
-  Wrench,
   X,
 } from 'lucide-react';
 import { clearStoredSession, getStoredUser } from '../lib/auth';
@@ -61,9 +58,6 @@ function deriveContext(pathname: string): SidekickContext {
   } else if (parts[0] === 'system') {
     workspace = 'system';
     page = parts[1] || null;
-  } else if (parts[0] === 'settings') {
-    workspace = 'system';
-    page = 'settings';
   } else {
     workspace = 'mission-control';
     page = 'home';
@@ -91,10 +85,8 @@ const SYSTEM_NAV: NavItem[] = [
   { to: '/system/status', label: 'Status', icon: Activity },
   { to: '/system/activity', label: 'Activity', icon: Bot },
   { to: '/system/review', label: 'Review', icon: ClipboardCheck },
-  { to: '/system/runs', label: 'Runs', icon: ListChecks },
-  { to: '/system/tools', label: 'Tools', icon: Wrench },
-  { to: '/system/flows', label: 'Flows', icon: GitBranch },
   { to: '/system/context', label: 'Context', icon: BookOpenText },
+  { to: '/system/settings', label: 'Settings', icon: Settings },
 ];
 
 function NavLinkItem({ item }: { item: NavItem }) {
@@ -144,8 +136,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           )}
         </div>
-
-        <NavLinkItem item={{ to: '/settings', label: 'Settings', icon: Settings }} />
       </nav>
       <div className="border-t border-white/10 px-3 py-3">
         <button onClick={onNavigate} className="w-full text-left">

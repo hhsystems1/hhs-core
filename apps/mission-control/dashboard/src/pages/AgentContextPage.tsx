@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { BookOpenText, FileUp, FileText, Link2, Loader2, Trash2 } from 'lucide-react';
 import { fetchJson, formatWhen } from '../lib/api';
 
 type ContextEntry = {
@@ -19,6 +20,21 @@ type AgentSummary = {
   last_seen: string;
 };
 
+type ContextDocument = {
+  id: string;
+  title: string;
+  filename: string;
+  content: string;
+  links: string[];
+  source: string;
+  uploaded_by: string | null;
+  artifact_id: string | null;
+  knowledge_document_id: string | null;
+  created_at: string;
+  updated_at: string;
+  content_preview?: string;
+};
+
 const CONTEXT_TYPES = ['state', 'conversation', 'decision', 'observation', 'handoff'];
 
 export default function AgentContextPage() {
@@ -31,6 +47,14 @@ export default function AgentContextPage() {
   const [filterType, setFilterType] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<ContextEntry[] | null>(null);
+
+  const [docs, setDocs] = useState<ContextDocument[]>([]);
+  const [docTitle, setDocTitle] = useState('');
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +92,20 @@ export default function AgentContextPage() {
     };
   }, [searchText, filterAgent, filterType]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchJson<{ documents: ContextDocument[] }>('/api/context/documents')
+      .then((res) => {
+        if (!cancelled) setDocs(res.documents || []);
+      })
+      .catch((e) => {
+        if (!cancelled) setDocError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function refreshEntries() {
     try {
       const params = new URLSearchParams({ limit: '100' });
@@ -100,17 +138,136 @@ export default function AgentContextPage() {
     }
   };
 
+  async function uploadDoc() {
+    if (!docFile) return;
+    setUploading(true);
+    setDocError(null);
+    try {
+      const form = new FormData();
+      form.append('file', docFile);
+      if (docTitle.trim()) form.append('title', docTitle.trim());
+      const res = await fetchJson<{ document: ContextDocument }>('/api/context/documents', {
+        method: 'POST',
+        body: form,
+      });
+      setDocs((prev) => [res.document, ...prev]);
+      setDocFile(null);
+      setDocTitle('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteDoc(id: string) {
+    setDeletingId(id);
+    setDocError(null);
+    try {
+      await fetchJson(`/api/context/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold">Agent Context Store</h1>
-            <p className="mt-1 text-sm text-white/50">Persistent memory for AI agents — search across sessions, pick up where you left off.</p>
+            <h1 className="text-lg font-bold">Agent Context</h1>
+            <p className="mt-1 text-sm text-white/50">Upload reference material (.md) for agents to read, and browse the agent context store.</p>
           </div>
           <span className="shrink-0 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-100">{entries.length} entries</span>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6">
+        <div className="flex items-center gap-2">
+          <BookOpenText className="h-4 w-4 text-sky-300" />
+          <h2 className="text-sm font-bold">Context documents</h2>
+        </div>
+        <p className="mt-1 text-sm text-white/50">Upload .md files with information or links you want agents to be able to look at.</p>
+
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+          <input
+            value={docTitle}
+            onChange={(e) => setDocTitle(e.target.value)}
+            placeholder="Title (optional — defaults to filename)"
+            className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white outline-none focus:border-sky-300/50 flex-1"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,.markdown,.txt"
+            onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+            className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:border-white/20 flex-1"
+          />
+          <button
+            onClick={() => void uploadDoc()}
+            disabled={!docFile || uploading}
+            className="mc-primary-button gap-2"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+            {uploading ? 'Uploading…' : 'Upload'}
+          </button>
+        </div>
+
+        {docError && <div className="mc-alert mt-3">{docError}</div>}
+
+        {docs.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-6 text-sm text-white/45 text-center">
+            No context documents yet. Upload a .md file to give agents shared reference material.
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {docs.map((d) => (
+              <div key={d.id} className="rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-white/20 transition">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-sky-300" />
+                      <span className="text-sm font-semibold truncate">{d.title}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">{d.filename} • {formatWhen(d.created_at)}{d.uploaded_by ? ` • by ${d.uploaded_by}` : ''}</div>
+                    {d.content_preview && (
+                      <div className="mt-2 text-xs text-white/60 line-clamp-2 whitespace-pre-wrap">{d.content_preview}</div>
+                    )}
+                    {d.links.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <Link2 className="h-3 w-3 text-white/35" />
+                        {d.links.slice(0, 8).map((link) => (
+                          <a
+                            key={link}
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="max-w-[220px] truncate rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[10px] text-sky-200 hover:bg-sky-400/20"
+                          >
+                            {link}
+                          </a>
+                        ))}
+                        {d.links.length > 8 && <span className="text-[10px] text-white/40">+{d.links.length - 8} more</span>}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => void deleteDoc(d.id)}
+                    disabled={deletingId === d.id}
+                    className="shrink-0 rounded-full border border-red-400/20 px-2.5 py-1.5 text-[10px] text-red-200 hover:bg-red-400/10 disabled:opacity-50"
+                  >
+                    {deletingId === d.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="flex flex-wrap items-center gap-3">
         <input value={searchText} onChange={(e) => setSearchText(e.target.value)}

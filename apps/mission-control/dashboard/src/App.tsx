@@ -36,7 +36,6 @@ import ReviewQueuePage from './pages/system/ReviewQueuePage';
 import RunsPage from './pages/system/RunsPage';
 import ActivityPage from './pages/system/ActivityPage';
 import FlowsPage from './pages/system/FlowsPage';
-import ToolsPage from './pages/system/ToolsPage';
 import AgentContextPage from './pages/AgentContextPage';
 import Settings from './pages/Settings';
 
@@ -103,10 +102,7 @@ function AppRoutes() {
         <Route path="/system/status" element={<SystemStatusPage />} />
         <Route path="/system/review" element={<ReviewQueuePage />} />
         <Route path="/system/activity" element={<ActivityPage />} />
-        <Route path="/system/flows" element={<FlowsPage />} />
-        <Route path="/system/runs" element={<RunsPage />} />
-        <Route path="/system/tools" element={<ToolsPage />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/system/settings" element={<Settings />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

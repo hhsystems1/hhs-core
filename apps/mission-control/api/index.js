@@ -16,6 +16,7 @@ import { initWebSocket, getIO } from './ws.js';
 import { startJobWorker } from './worker.js';
 import twilio from 'twilio';
 import { registerCommandRoutes } from './commandRoutes.js'; // <-- NEW IMPORT
+import { registerSystemRoutes } from './systemRoutes.js';
 
 const PORT = process.env.PORT || 3001;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve('./uploads');
@@ -198,6 +199,7 @@ app.use('/api/v1', requireTenantContext(pool));
 app.use('/api/solar', requireTenantContext(pool));
 app.use('/api/context', requireTenantContext(pool));
 registerCrmRoutes(app, pool);
+registerSystemRoutes(app, pool, { upload });
 registerContextRoutes(app, pool);
 registerCommandRoutes(app, pool);
 
@@ -353,10 +355,11 @@ app.get('/api/review-queue', async (req, res) => {
         rq.decision,
         rq.promotion_target,
         rq.target_workspace_id,
+        rq.notes,
         a.id as artifact_id,
         a.title as artifact_title,
-        null::text as artifact_type,
-        null::text as scope,
+        a.artifact_type as artifact_type,
+        a.scope as scope,
         exists(
           select 1 from artifact_anchors aa
           where aa.artifact_id = a.id
