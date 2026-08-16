@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { emitEvent } from './events.js';
 import { assignReview, decideReview } from './review.js';
 import { createKnowledgeDocument, createKnowledgeChunks, chunkText } from './knowledge.js';
+import { getDefaultTenant } from './tenantContext.js';
 
 const MARKDOWN_LINK_RE = /\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
 const BARE_URL_RE = /(?:^|\s)(https?:\/\/[^\s)]+)/g;
@@ -96,6 +97,111 @@ export function registerSystemRoutes(app, pool, { upload }) {
       gateway: { name: 'Mission Control API', connected: true, detail: dbOk ? 'API + database live' : 'API live, database unreachable' },
       connections: results,
     });
+  });
+
+  // --- Calendar: tasks + activity for a date range (drives the interactive home calendar) ---
+  app.get('/api/calendar', async (req, res) => {
+    try {
+      const from = String(req.query?.from || '');
+      const to = String(req.query?.to || '');
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+        return res.status(400).json({ ok: false, error: 'from and to are required as YYYY-MM-DD', code: 'calendar_range_required' });
+      }
+      const tenantId = req.tenant?.id || (await getDefaultTenant(pool))?.id || null;
+      const toExclusive = new Date(toDate.getTime());
+      toExclusive.setDate(toExclusive.getDate() + 1);
+
+      const tasksResult = await pool.query(
+        `select
+           t.id::text, t.tenant_id::text, t.title, t.description, t.status, t.priority,
+           t.due_at, t.created_at, t.metadata,
+           c.id::text as contact_id, c.source_person_id::text, c.full_name as contact_full_name
+         from crm_tasks t
+         left join crm_contacts c on c.id = t.contact_id and c.tenant_id = t.tenant_id
+         where t.tenant_id = $1 and t.due_at >= $2 and t.due_at < $3
+         order by t.due_at asc
+         limit 400`,
+        [tenantId, fromDate, toExclusive]
+      );
+
+      const tasks = tasksResult.rows.map((row) => {
+        const metadata = row.metadata || {};
+        return {
+          id: String(row.id),
+          title: row.title || null,
+          description: row.description || null,
+          status: row.status || 'open',
+          priority: row.priority || 'normal',
+          due_at: row.due_at || null,
+          created_at: row.created_at || null,
+          tenant_id: row.tenant_id || null,
+          contact: row.contact_id
+            ? {
+                id: String(row.contact_id),
+                source_person_id: row.source_person_id || null,
+                full_name: row.contact_full_name || null,
+              }
+            : null,
+          appointment_status: metadata.appointment_status || null,
+          scheduled_at: metadata.scheduled_at || null,
+        };
+      });
+
+      const [eventsResult, timelineResult] = await Promise.all([
+        pool.query(
+          `select id::text, event_level, event_type, occurred_at, actor, artifact_id, workspace_id, person_id
+           from events_v2
+           where occurred_at >= $1 and occurred_at < $2
+           order by occurred_at asc
+           limit 400`,
+          [fromDate, toExclusive]
+        ),
+        pool.query(
+          `select e.id::text, e.event_type, e.event_level, e.occurred_at, e.source_channel,
+                  e.title, e.description, e.source_link_id, e.payload_json,
+                  c.full_name as contact_name
+           from crm_timeline_events e
+           left join crm_contacts c on c.id = e.contact_id and c.tenant_id = e.tenant_id
+           where e.tenant_id = $1 and e.occurred_at >= $2 and e.occurred_at < $3
+           order by e.occurred_at asc
+           limit 400`,
+          [tenantId, fromDate, toExclusive]
+        ),
+      ]);
+
+      const activity = [
+        ...eventsResult.rows.map((row) => ({
+          id: `ev2:${row.id}`,
+          kind: 'system',
+          event_type: row.event_type,
+          event_level: row.event_level,
+          occurred_at: row.occurred_at,
+          actor: row.actor || null,
+          source_channel: null,
+          title: row.event_type,
+          description: null,
+          contact_name: null,
+        })),
+        ...timelineResult.rows.map((row) => ({
+          id: `tl:${row.id}`,
+          kind: 'communication',
+          event_type: row.event_type,
+          event_level: row.event_level,
+          occurred_at: row.occurred_at,
+          actor: null,
+          source_channel: row.source_channel || null,
+          title: row.title || row.event_type,
+          description: row.description || null,
+          contact_name: row.contact_name || null,
+        })),
+      ];
+
+      res.json({ ok: true, from, to, tasks, activity });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e), code: 'calendar_list_failed' });
+    }
   });
 
   // --- Review: move a queued review into review
