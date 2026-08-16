@@ -9,7 +9,6 @@ const CRM_NAV = [
   { to: '/crm', label: 'Home', end: true },
   { to: '/crm/customers', label: 'Customers' },
   { to: '/crm/opportunities', label: 'Opportunities' },
-  { to: '/solar/leads', label: 'Leads' },
   { to: '/crm/feed', label: 'Feed' },
   { to: '/crm/tasks', label: 'Tasks' },
   { to: '/crm/analytics', label: 'Analytics' },

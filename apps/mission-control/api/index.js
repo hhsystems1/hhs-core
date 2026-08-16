@@ -196,7 +196,6 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use('/api/v1', requireTenantContext(pool));
-app.use('/api/solar', requireTenantContext(pool));
 app.use('/api/context', requireTenantContext(pool));
 registerCrmRoutes(app, pool);
 registerSystemRoutes(app, pool, { upload });

@@ -22,15 +22,6 @@ import WorkflowCanvas from './pages/agents/WorkflowCanvas';
 import AgentJobDetailPage from './pages/agents/AgentJobDetailPage';
 import AgentBoardPage from './pages/AgentBoardPage';
 
-import SolarShell from './pages/solar/SolarShell';
-import SolarOverview from './pages/solar/SolarOverview';
-import SolarLeads from './pages/solar/SolarLeads';
-import SolarActivity from './pages/solar/SolarActivity';
-import SolarReview from './pages/solar/SolarReview';
-import SolarFlows from './pages/solar/SolarFlows';
-import SolarDoctrine from './pages/solar/SolarDoctrine';
-import SolarSettings from './pages/solar/SolarSettings';
-import SolarLeadDetail from './pages/solar/SolarLeadDetail';
 import SystemStatusPage from './pages/system/SystemStatusPage';
 import ReviewQueuePage from './pages/system/ReviewQueuePage';
 import RunsPage from './pages/system/RunsPage';
@@ -71,7 +62,6 @@ function AppRoutes() {
           <Route index element={<CrmHome />} />
           <Route path="customers" element={<CrmCustomers />} />
           <Route path="opportunities" element={<CrmOpportunities />} />
-          <Route path="leads" element={<Navigate to="/solar/leads" replace />} />
           <Route path="feed" element={<CrmFeed />} />
           <Route path="tasks" element={<CrmTasksPage />} />
           <Route path="analytics" element={<CrmAnalytics />} />
@@ -85,17 +75,6 @@ function AppRoutes() {
           <Route path="runs" element={<RunsPage title="Run Log" subtitle="Source: /api/runs" />} />
           <Route path="flows" element={<FlowsPage title="Flow View" subtitle="Grouped by root_run_id" />} />
           <Route path="jobs/:jobId" element={<AgentJobDetailPage />} />
-        </Route>
-
-        <Route path="/solar" element={<SolarShell />}>
-          <Route index element={<SolarOverview />} />
-          <Route path="leads" element={<SolarLeads />} />
-          <Route path="leads/:leadId" element={<SolarLeadDetail />} />
-          <Route path="activity" element={<SolarActivity />} />
-          <Route path="review" element={<SolarReview />} />
-          <Route path="flows" element={<SolarFlows />} />
-          <Route path="doctrine" element={<SolarDoctrine />} />
-          <Route path="settings" element={<SolarSettings />} />
         </Route>
 
         <Route path="/system/context" element={<AgentContextPage />} />

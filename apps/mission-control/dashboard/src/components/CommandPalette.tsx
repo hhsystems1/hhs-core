@@ -26,7 +26,6 @@ const ROUTES = [
   { type: 'route' as const, id: 'home', label: 'Mission Control', to: '/' },
   { type: 'route' as const, id: 'crm', label: 'CRM Dashboard', to: '/crm' },
   { type: 'route' as const, id: 'tasks', label: 'CRM Task Queue', to: '/crm/tasks' },
-  { type: 'route' as const, id: 'leads', label: 'Solar Leads', to: '/solar/leads' },
   { type: 'route' as const, id: 'chat', label: 'Agent Chat', to: '/chat' },
   { type: 'route' as const, id: 'agents', label: 'Workflow Canvas', to: '/agents' },
   { type: 'route' as const, id: 'board', label: 'Agent Job Board', to: '/agents/board' },

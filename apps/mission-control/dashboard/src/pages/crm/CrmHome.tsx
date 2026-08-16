@@ -45,7 +45,6 @@ export default function CrmHome() {
           <button onClick={() => crm.openCreate('opportunity')} className="rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-400/20">+ New Deal</button>
           <button onClick={() => crm.openCreate('task')} className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-400/20">+ New Task</button>
           <Link className="text-sm font-semibold text-sky-200 hover:text-sky-100" to="/crm/tasks">Open CRM task list</Link>
-          <Link className="text-sm font-semibold text-sky-200 hover:text-sky-100" to="/solar/leads">Open lead inbox</Link>
         </div>
       </ShellCard>
 

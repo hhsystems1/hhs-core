@@ -139,23 +139,6 @@ function normalizeTask(row, tenantId) {
   };
 }
 
-function normalizeSolarLead(row) {
-  const metadata = row.metadata || {};
-  const latestTaskStatus = row.latest_task_review_status || row.latest_task_status || null;
-  return {
-    id: row.source_person_id ? String(row.source_person_id) : String(row.id),
-    contact_id: String(row.id),
-    name: row.full_name || 'Unnamed lead',
-    source: metadata.source || metadata.lead_source || row.source_channel || 'CRM',
-    bill_status: metadata.bill_status || metadata.utility_bill_status || 'unknown',
-    contact_status: metadata.contact_status || row.contact_status || 'unknown',
-    appointment_status: metadata.appointment_status || 'not_set',
-    next_action: row.latest_task_title || (latestTaskStatus === 'queued' ? 'Review queued CRM task' : null) || 'Create CRM follow-up task',
-    lifecycle_stage: row.lifecycle_stage || 'unknown',
-    updated_at: row.updated_at || row.created_at || null,
-  };
-}
-
 function safePriority(value) {
   return ['low', 'normal', 'high', 'urgent'].includes(value) ? value : 'normal';
 }
@@ -282,40 +265,6 @@ export function registerCrmRoutes(app, pool) {
       res.json({ ok: true, tenant: req.tenant || null, filter: { q: q || null, limit }, people: result.rows.map((row) => normalizePerson(row, tenantId)) });
     } catch (e) {
       res.status(500).json({ ok: false, error: String(e), code: 'crm_people_list_failed' });
-    }
-  });
-
-  app.get('/api/solar/leads', async (req, res) => {
-    try {
-      const tenantId = req.tenant?.id || null;
-      if (!tenantId) return res.status(503).json({ ok: false, error: 'tenant context required', code: 'tenant_context_required' });
-      const limit = clampLimit(req.query?.limit, { defaultValue: 100, min: 1, max: 200 });
-      const result = await pool.query(
-        `with latest_tasks as (
-           select distinct on (crm_tasks.contact_id)
-             crm_tasks.contact_id, crm_tasks.title, crm_tasks.status,
-             coalesce(crm_tasks.metadata->>'review_status', 'queued') as review_status,
-             crm_tasks.created_at
-           from crm_tasks
-           where crm_tasks.tenant_id = $1
-           order by crm_tasks.contact_id, crm_tasks.created_at desc nulls last
-         )
-         select crm_contacts.id::text, crm_contacts.source_person_id::text, crm_contacts.full_name,
-                crm_contacts.lifecycle_stage, crm_contacts.status as contact_status, crm_contacts.metadata,
-                crm_contacts.created_at, crm_contacts.updated_at,
-                latest_tasks.title as latest_task_title,
-                latest_tasks.status as latest_task_status,
-                latest_tasks.review_status as latest_task_review_status
-         from crm_contacts
-         left join latest_tasks on latest_tasks.contact_id = crm_contacts.id
-         where crm_contacts.tenant_id = $1 and crm_contacts.status <> 'archived'
-         order by coalesce(crm_contacts.updated_at, crm_contacts.created_at) desc nulls last, crm_contacts.full_name asc nulls last
-         limit $2`,
-        [tenantId, limit]
-      );
-      res.json({ ok: true, tenant: req.tenant || null, filter: { limit }, leads: result.rows.map(normalizeSolarLead) });
-    } catch (e) {
-      res.status(500).json({ ok: false, error: String(e), code: 'solar_leads_list_failed' });
     }
   });
 

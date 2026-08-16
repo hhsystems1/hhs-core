@@ -46,60 +46,6 @@ test('registers read-only CRM routes under /api/v1', () => {
   assert.equal(typeof app.routes.get('GET /api/v1/crm/tasks'), 'function');
   assert.equal(typeof app.routes.get('POST /api/v1/crm/people/:personId/tasks/draft'), 'function');
   assert.equal(typeof app.routes.get('PATCH /api/v1/crm/tasks/:taskId/review'), 'function');
-  assert.equal(typeof app.routes.get('GET /api/solar/leads'), 'function');
-});
-
-test('GET /api/solar/leads returns CRM-backed lead inbox rows', async () => {
-  const app = createFakeApp();
-  const queries = [];
-  const pool = {
-    async query(sql, params) {
-      queries.push({ sql, params });
-      return {
-        rows: [
-          {
-            id: 'contact-1',
-            source_person_id: 'person-1',
-            full_name: 'Jane Solar',
-            lifecycle_stage: 'lead',
-            contact_status: 'active',
-            metadata: { source: 'website', bill_status: 'received', contact_status: 'new' },
-            created_at: '2026-05-11T00:00:00.000Z',
-            updated_at: '2026-05-12T00:00:00.000Z',
-            latest_task_title: 'Review Jane bill',
-            latest_task_status: 'open',
-            latest_task_review_status: 'queued',
-          },
-        ],
-      };
-    },
-  };
-
-  registerCrmRoutes(app, pool);
-  const res = createResponse();
-  await app.routes.get('GET /api/solar/leads')({ query: { limit: '25' }, tenant: { id: 'tenant-hhs' } }, res);
-
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body.ok, true);
-  assert.deepEqual(res.body.filter, { limit: 25 });
-  assert.deepEqual(res.body.leads, [
-    {
-      id: 'person-1',
-      contact_id: 'contact-1',
-      name: 'Jane Solar',
-      source: 'website',
-      bill_status: 'received',
-      contact_status: 'new',
-      appointment_status: 'not_set',
-      next_action: 'Review Jane bill',
-      lifecycle_stage: 'lead',
-      updated_at: '2026-05-12T00:00:00.000Z',
-    },
-  ]);
-  assert.match(queries[0].sql, /from crm_contacts/i);
-  assert.match(queries[0].sql, /left join latest_tasks/i);
-  assert.match(queries[0].sql, /crm_contacts\.tenant_id = \$1/i);
-  assert.deepEqual(queries[0].params, ['tenant-hhs', 25]);
 });
 
 test('GET /api/v1/crm/people returns normalized people from existing people table', async () => {

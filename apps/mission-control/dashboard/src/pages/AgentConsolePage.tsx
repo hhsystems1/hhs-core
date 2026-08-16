@@ -256,7 +256,7 @@ export default function AgentConsolePage() {
             {turns.length === 0 ? (
               <div className="mc-empty-state">
                 <div className="font-semibold text-white">Start with a concrete task.</div>
-                <div className="mt-1 text-sm text-white/50">Example: summarize today&apos;s CRM follow-ups or inspect the solar lead queue.</div>
+                <div className="mt-1 text-sm text-white/50">Example: summarize today&apos;s CRM follow-ups or check the review queue.</div>
               </div>
             ) : (
               turns.map((turn) => (

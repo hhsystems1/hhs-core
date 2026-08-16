@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, CalendarDays, ClipboardList, MessageSquare, Network, ShieldCheck, Workflow } from 'lucide-react';
+import { Bot, CalendarDays, ClipboardList, MessageSquare, ShieldCheck, Workflow } from 'lucide-react';
 import { ShellCard } from '../components/ShellCard';
 import { fetchJson, formatWhen } from '../lib/api';
 
@@ -89,7 +89,7 @@ export default function MissionControlHome() {
           <JumpTile icon={<MessageSquare className="h-4 w-4 text-sky-300" />} label="Chat" to="/chat" helper="Talk to agents" />
           <JumpTile icon={<Workflow className="h-4 w-4 text-violet-300" />} label="Agents" to="/agents" helper="Canvas & board" />
           <JumpTile icon={<ClipboardList className="h-4 w-4 text-emerald-300" />} label="CRM" to="/crm" helper="Customers & tasks" />
-          <JumpTile icon={<Network className="h-4 w-4 text-amber-300" />} label="Solar" to="/solar/leads" helper="Lead inbox" />
+          <JumpTile icon={<ShieldCheck className="h-4 w-4 text-amber-300" />} label="Review" to="/system/review" helper="Approval queue" />
         </div>
       </section>
 
@@ -175,7 +175,7 @@ export default function MissionControlHome() {
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="text-sm font-semibold">One surface, one scope</div>
-            <p className="mt-1 text-xs text-white/55">Mission Control is the operator surface. Solar keeps its own lead inbox; CRM keeps its customers. No duplicate entry points.</p>
+            <p className="mt-1 text-xs text-white/55">Mission Control is the operator surface. CRM keeps its customers and pipeline; System tracks status, reviews, and context. No duplicate entry points.</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="text-sm font-semibold">Tenant isolation</div>

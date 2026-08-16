@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Search,
   Settings,
-  Sun,
   Users,
   Workflow,
   X,
@@ -41,10 +40,6 @@ function deriveContext(pathname: string): SidekickContext {
   if (parts.length === 0) {
     workspace = 'mission-control';
     page = 'home';
-  } else if (parts[0] === 'solar') {
-    workspace = 'solar';
-    page = parts[1] || 'overview';
-    if (parts[1] === 'leads' && parts[2]) recordId = parts[2];
   } else if (parts[0] === 'crm') {
     workspace = 'crm';
     page = parts[1] || 'home';
@@ -78,7 +73,6 @@ const MAIN_NAV: NavItem[] = [
   { to: '/crm', label: 'CRM', icon: Users },
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/agents', label: 'Agents', icon: Workflow },
-  { to: '/solar/leads', label: 'Solar', icon: Sun },
 ];
 
 const SYSTEM_NAV: NavItem[] = [
