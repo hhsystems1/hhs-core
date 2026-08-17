@@ -80,6 +80,8 @@ async function runSubagent(job) {
   }
 }
 
+// ── Process a single (non-workflow) job ─────────────────────────
+
 async function processJob(pool, job, broadcast) {
   const rootRunId = job.id;
   const agentId = job.agent_id || 'agent';
@@ -87,6 +89,16 @@ async function processJob(pool, job, broadcast) {
   const inputRef = job.input || '{}';
 
   try {
+    // Check if this is a workflow job
+    let input = {};
+    try { input = JSON.parse(job.input || '{}'); } catch { /* not JSON */ }
+
+    if (input.graph) {
+      await processWorkflowJob(pool, job, input.graph, broadcast);
+      return;
+    }
+
+    // ── Single-agent execution (original flow) ──
     await insertStep(pool, {
       rootRunId,
       sequenceIndex: 0,
@@ -144,6 +156,142 @@ async function processJob(pool, job, broadcast) {
     if (broadcast) broadcast('flow:updated', { root_run_id: rootRunId });
   }
 }
+
+// ── Process a workflow job (multi-node DAG) ─────────────────────
+
+async function processWorkflowJob(pool, job, graph, broadcast) {
+  const rootRunId = job.id;
+  const { topo_order, nodes: graphNodes } = graph;
+
+  // Step 0: orchestrator route
+  await insertStep(pool, {
+    rootRunId,
+    sequenceIndex: 0,
+    toolId: 'orchestrator.route',
+    taskSummary: `Workflow: ${graph.workflow_name || 'untitled'}`,
+    taskType: 'workflow_route',
+    status: 'success',
+    inputRef: JSON.stringify({ workflow_id: graph.workflow_id }),
+    initiatedBy: 'system',
+  });
+  publishJobStatus('running', rootRunId);
+  if (broadcast) broadcast('flow:updated', { root_run_id: rootRunId });
+
+  const nodeMap = new Map(graphNodes.map((n) => [n.id, n]));
+  const completedIds = new Set();
+  const failedIds = new Set();
+  const stepIds = new Map(); // graph node id -> tool_run_log id
+  let seqIndex = 1;
+  let allDone = false;
+
+  while (!allDone) {
+    const ready = graphNodes.filter((n) => {
+      if (completedIds.has(n.id) || failedIds.has(n.id)) return false;
+      const deps = n.depends_on || [];
+      return deps.every((depId) => completedIds.has(depId) || failedIds.has(depId));
+    });
+
+    if (ready.length === 0) {
+      // Either all done or all remaining are blocked (deps failed)
+      if (completedIds.size + failedIds.size >= graphNodes.length) {
+        allDone = true;
+      } else {
+        // Blocked nodes — mark them as failed (upstream failure cascades)
+        for (const n of graphNodes) {
+          if (!completedIds.has(n.id) && !failedIds.has(n.id)) {
+            failedIds.add(n.id);
+            const toolId = n.type === 'tool'
+              ? (n.data?.toolId || 'tool')
+              : n.type === 'agent'
+                ? `agent:${n.data?.agentId || 'agent'}`
+                : n.type || 'unknown';
+            await insertStep(pool, {
+              rootRunId,
+              sequenceIndex: seqIndex++,
+              toolId,
+              taskSummary: n.data?.label || n.id,
+              taskType: `${n.type || 'node'}_blocked`,
+              status: 'failed',
+              inputRef: JSON.stringify({ node_id: n.id, blocked_by: n.depends_on }),
+              initiatedBy: n.data?.agentId || 'system',
+              error: 'Upstream dependency failed',
+            });
+          }
+        }
+        allDone = true;
+      }
+      continue;
+    }
+
+    // Execute all ready nodes in parallel
+    await Promise.all(ready.map(async (n) => {
+      const toolId = n.type === 'tool'
+        ? (n.data?.toolId || 'tool')
+        : n.type === 'agent'
+          ? `agent:${n.data?.agentId || 'agent'}`
+          : n.type === 'trigger'
+            ? 'trigger'
+            : n.type || 'unknown';
+      const taskSummary = n.data?.label || n.id;
+      const agentId = n.data?.agentId || 'coding';
+      const taskPrompt = n.data?.taskPrompt || taskSummary;
+
+      const stepRunId = await insertStep(pool, {
+        rootRunId,
+        sequenceIndex: seqIndex++,
+        toolId,
+        taskSummary,
+        taskType: `${n.type || 'node'}_execute`,
+        status: 'running',
+        inputRef: JSON.stringify({ node_id: n.id, depends_on: n.depends_on }),
+        initiatedBy: agentId,
+      });
+      stepIds.set(n.id, stepRunId);
+      if (broadcast) broadcast('flow:updated', { root_run_id: rootRunId });
+
+      try {
+        const output = await runSubagent({
+          id: `${rootRunId}-${n.id}`,
+          capability: taskPrompt,
+          agent_id: agentId,
+        });
+        await updateStep(pool, stepRunId, { status: 'success', outputRef: { output: truncateText(output, 2000) } });
+        completedIds.add(n.id);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        await updateStep(pool, stepRunId, { status: 'failed', error: message });
+        failedIds.add(n.id);
+      }
+
+      if (broadcast) broadcast('flow:updated', { root_run_id: rootRunId });
+    }));
+  }
+
+  // Mark root job as completed or failed
+  const hadFailure = failedIds.size > 0;
+  const status = hadFailure ? 'failed' : 'completed';
+  const result = {
+    workflow_id: graph.workflow_id,
+    completed: completedIds.size,
+    failed: failedIds.size,
+    total: graphNodes.length,
+    node_results: graphNodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      label: n.data?.label,
+      status: completedIds.has(n.id) ? 'completed' : failedIds.has(n.id) ? 'failed' : 'blocked',
+    })),
+  };
+
+  await pool.query(
+    `update agent_jobs set status = $2, result = $3, updated_at = now() where id = $1`,
+    [rootRunId, status, JSON.stringify(result)]
+  );
+  publishJobStatus(status, rootRunId);
+  if (broadcast) broadcast('flow:updated', { root_run_id: rootRunId });
+}
+
+// ── Worker loop ─────────────────────────────────────────────────
 
 export function startJobWorker({ pool, broadcast }) {
   let stopped = false;

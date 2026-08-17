@@ -146,7 +146,7 @@ export default function MissionControlHome() {
 
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <JumpTile icon={<MessageSquare className="h-4 w-4 text-sky-300" />} label="Chat" to="/chat" helper="Talk to agents" />
-          <JumpTile icon={<Workflow className="h-4 w-4 text-violet-300" />} label="Agents" to="/agents" helper="Canvas & board" />
+          <JumpTile icon={<Workflow className="h-4 w-4 text-violet-300" />} label="Agents" to="/agents" helper="Designer & monitor" />
           <JumpTile icon={<ClipboardList className="h-4 w-4 text-emerald-300" />} label="CRM" to="/crm" helper="Customers & tasks" />
           <JumpTile icon={<ShieldCheck className="h-4 w-4 text-amber-300" />} label="Review" to="/system/review" helper="Approval queue" />
         </div>

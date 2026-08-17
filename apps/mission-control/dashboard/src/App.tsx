@@ -18,6 +18,7 @@ import CrmAnalytics from './pages/crm/CrmAnalytics';
 import CrmSettings from './pages/crm/CrmSettings';
 
 import AgentsLayout from './pages/agents/AgentsLayout';
+import WorkflowEditor from './pages/agents/WorkflowEditor';
 import WorkflowCanvas from './pages/agents/WorkflowCanvas';
 import AgentJobDetailPage from './pages/agents/AgentJobDetailPage';
 import AgentBoardPage from './pages/AgentBoardPage';
@@ -70,7 +71,8 @@ function AppRoutes() {
         </Route>
 
         <Route path="/agents" element={<AgentsLayout />}>
-          <Route index element={<WorkflowCanvas />} />
+          <Route index element={<WorkflowEditor />} />
+          <Route path="canvas" element={<WorkflowCanvas />} />
           <Route path="board" element={<AgentBoardPage />} />
           <Route path="runs" element={<RunsPage title="Run Log" subtitle="Source: /api/runs" />} />
           <Route path="flows" element={<FlowsPage title="Flow View" subtitle="Grouped by root_run_id" />} />

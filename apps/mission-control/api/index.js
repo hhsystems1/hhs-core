@@ -14,8 +14,9 @@ import { registerContextRoutes } from './contextRoutes.js';
 import { getDefaultTenant, requireTenantContext } from './tenantContext.js';
 import { initWebSocket, getIO } from './ws.js';
 import { startJobWorker } from './worker.js';
-import { registerCommandRoutes } from './commandRoutes.js'; // <-- NEW IMPORT
+import { registerCommandRoutes } from './commandRoutes.js';
 import { registerSystemRoutes } from './systemRoutes.js';
+import { registerWorkflowRoutes } from './workflowRoutes.js';
 
 const PORT = process.env.PORT || 3001;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve('./uploads');
@@ -193,7 +194,8 @@ app.use('/api/context', requireTenantContext(pool));
 registerCrmRoutes(app, pool);
 registerSystemRoutes(app, pool, { upload });
 registerContextRoutes(app, pool);
-registerCommandRoutes(app, pool);
+  registerCommandRoutes(app, pool);
+  registerWorkflowRoutes(app, pool);
 
 // Agent jobs
 app.get('/api/v1/jobs', async (req, res) => {
