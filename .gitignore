@@ -13,6 +13,10 @@ build/
 .output/
 out/
 
+# Mission Control API served bundle + runtime uploads
+apps/mission-control/api/public/assets/
+uploads/
+
 # Env
 .env
 .env.local

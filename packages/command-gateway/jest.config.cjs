@@ -1,19 +1,18 @@
+/** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  moduleExtension: ['.ts'],
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        preset: 'tsconfig.json',
-        testInclude: ['src/**/*.ts'],
-      }
-    }
-  },
+  roots: ['<rootDir>/tests'],
   transform: {
-    '^.+\\.ts$': 'ts-jest'
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          module: 'commonjs',
+          types: ['node', 'jest'],
+        },
+      },
+    ],
   },
   coverageDirectory: '<rootDir>/coverage',
-  verbose: true,
 };

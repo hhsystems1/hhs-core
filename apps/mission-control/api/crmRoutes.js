@@ -829,7 +829,7 @@ export function registerCrmRoutes(app, pool) {
                 event_type, event_level, occurred_at, source_channel, source_link_id,
                 workspace_id::text, title, description, coalesce(payload_json, '{}'::jsonb) as payload_json
          from crm_timeline_events
-         where tenant_id = $1 and contact_id = $2
+         where crm_timeline_events.tenant_id = $1 and crm_timeline_events.contact_id = $2
          order by occurred_at desc nulls last
          limit $3`,
         [tenantId, contact.id, limit]

@@ -23,7 +23,10 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve('./uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const app = express();
-app.use(cors());
+// CORS_ORIGINS: comma-separated allowlist (e.g. "https://mc.example.com,http://localhost:5173").
+// Unset = permissive (dev default). Set it in production before exposing the API.
+const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors(corsOrigins ? { origin: corsOrigins } : {}));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -38,7 +41,34 @@ const pool = new Pool({
 const upload = multer({ dest: UPLOAD_DIR });
 
 // --- Auth ---
-const sessions = new Map();
+// Sessions are persisted in the auth_sessions table so they survive restarts.
+const SESSION_TTL_DAYS = 30;
+
+async function loadSession(sessionId) {
+  if (!sessionId) return null;
+  const r = await pool.query(
+    `select s.user_id, u.email, u.status
+       from auth_sessions s
+       join users u on u.id = s.user_id
+      where s.id = $1 and s.expires_at > now()`,
+    [sessionId]
+  );
+  const row = r.rows[0];
+  if (!row || row.status !== 'active') return null;
+  return { userId: row.user_id, email: row.email };
+}
+
+// Sliding expiry + throttled last_seen refresh (at most once per minute).
+async function touchSession(sessionId) {
+  await pool.query(
+    `update auth_sessions
+        set last_seen_at = now(),
+            expires_at = now() + ($2::int * interval '1 day')
+      where id = $1
+        and last_seen_at < now() - interval '1 minute'`,
+    [sessionId, SESSION_TTL_DAYS]
+  );
+}
 
 function getBearerSessionId(req) {
   const auth = req.headers.authorization;
@@ -137,8 +167,15 @@ app.post('/api/auth/login', async (req, res) => {
     const valid = await bcrypt.default.compare(password, result.rows[0].password_hash || '');
     if (!valid) return res.status(401).json({ ok: false, error: 'invalid credentials' });
 
+    // Opportunistic cleanup of expired sessions.
+    await pool.query('delete from auth_sessions where expires_at <= now()');
+
     const sessionId = crypto.randomUUID();
-    sessions.set(sessionId, { userId: result.rows[0].id, email: result.rows[0].email });
+    await pool.query(
+      `insert into auth_sessions (id, user_id, expires_at)
+       values ($1, $2, now() + ($3::int * interval '1 day'))`,
+      [sessionId, result.rows[0].id, SESSION_TTL_DAYS]
+    );
     res.json({ ok: true, session: sessionId, user: { id: result.rows[0].id, name: result.rows[0].full_name, email: result.rows[0].email } });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
@@ -147,15 +184,25 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   const sessionId = getBearerSessionId(req);
-  if (!sessionId) return res.status(401).json({ ok: false, error: 'no session' });
-  const session = sessions.get(sessionId);
-  if (!session) return res.status(401).json({ ok: false, error: 'invalid session' });
-  res.json({ ok: true, user: { id: session.userId, email: session.email } });
+  try {
+    const session = await loadSession(sessionId);
+    if (!session) return res.status(401).json({ ok: false, error: 'invalid session' });
+    await touchSession(sessionId);
+    res.json({ ok: true, user: { id: session.userId, email: session.email } });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
 });
 
 app.post('/api/auth/logout', async (req, res) => {
   const sessionId = getBearerSessionId(req);
-  if (sessionId) sessions.delete(sessionId);
+  if (sessionId) {
+    try {
+      await pool.query('delete from auth_sessions where id = $1', [sessionId]);
+    } catch (_) {
+      // session row may not exist; logout should still succeed
+    }
+  }
   res.json({ ok: true });
 });
 
@@ -170,14 +217,21 @@ app.get('/health', async (req, res) => {
 });
 
 // Protect API routes (except explicit auth endpoints above)
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   const token = getBearerSessionId(req);
   if (!token) return res.status(401).json({ ok: false, error: 'auth required' });
 
-  const session = sessions.get(token);
+  let session = null;
+  try {
+    session = await loadSession(token);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'session lookup failed' });
+  }
+
   if (session) {
     req.session = session;
     req.sessionId = token;
+    touchSession(token).catch(() => {});
     return next();
   }
 
@@ -245,7 +299,8 @@ app.get('/api/openclaw/status', async (req, res) => {
 app.get('/api/openclaw/config', async (req, res) => {
   try {
     const fs = await import('node:fs/promises');
-    const raw = await fs.readFile('/Users/turtleclaw/.openclaw/openclaw.json', 'utf8');
+    const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
+    const raw = await fs.readFile(configPath, 'utf8');
     const json = JSON.parse(raw);
       res.json({
         ok: true,

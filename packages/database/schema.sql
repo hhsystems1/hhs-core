@@ -1,6 +1,13 @@
 -- HHS-CORE UNIFIED DATABASE SCHEMA
 -- Version: 1.1.0
 -- Hierarchy: Root (HHS) -> Tenant (Client) -> Sub-Account (Distributor/Partner)
+--
+-- NOTE ON SOURCE OF TRUTH:
+-- The live, incremental database definition for Mission Control lives in
+-- apps/mission-control/db/migrations_*.sql and is applied in filename order.
+-- This file is a consolidated design reference for the unified multi-tenant
+-- hierarchy and may drift from what production actually runs. Do not apply
+-- this file on top of an existing Mission Control deployment.
 
 -- 0. Extensions
 create extension if not exists "pgcrypto";

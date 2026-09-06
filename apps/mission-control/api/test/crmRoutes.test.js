@@ -441,7 +441,7 @@ test('POST /api/v1/crm/people/:personId/tasks/draft creates internal approval-ga
       if (/from crm_contacts/i.test(sql)) {
         return { rows: [{ id: 'contact-1', account_id: 'account-1', source_person_id: 'person-1', full_name: 'Jane Solar', primary_email: 'jane@example.com', primary_phone: '555-0100' }] };
       }
-      return { rows: [{ id: 'task-1', tenant_id: 'tenant-hhs', title: params[3], description: params[4], status: 'open', priority: params[5], due_at: null, metadata: JSON.parse(params[7]), created_at: null, updated_at: null, contact_id: 'contact-1', source_person_id: 'person-1', contact_full_name: 'Jane Solar', contact_primary_email: 'jane@example.com', contact_primary_phone: '555-0100', account_id: 'account-1', account_name: null }] };
+      return { rows: [{ id: 'task-1', tenant_id: 'tenant-hhs', title: params[3], description: params[4], status: 'open', priority: params[5], due_at: null, metadata: JSON.parse(params[8]), created_at: null, updated_at: null, contact_id: 'contact-1', source_person_id: 'person-1', contact_full_name: 'Jane Solar', contact_primary_email: 'jane@example.com', contact_primary_phone: '555-0100', account_id: 'account-1', account_name: null }] };
     },
   };
   registerCrmRoutes(app, pool);
@@ -453,8 +453,8 @@ test('POST /api/v1/crm/people/:personId/tasks/draft creates internal approval-ga
   assert.equal(res.body.task.review.approval_required, true);
   assert.deepEqual(res.body.task.safety, { customer_facing: false, external_action_taken: false, draft_only: true });
   assert.match(queries[1].sql, /insert into crm_tasks/i);
-  assert.equal(JSON.parse(queries[1].params[7]).source, 'crm_person_timeline');
-  assert.equal(JSON.parse(queries[1].params[7]).customer_facing, false);
+  assert.equal(JSON.parse(queries[1].params[8]).source, 'crm_person_timeline');
+  assert.equal(JSON.parse(queries[1].params[8]).customer_facing, false);
 });
 
 test('POST draft task requires a title', async () => {

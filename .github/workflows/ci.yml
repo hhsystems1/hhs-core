@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: API tests (mission-control)
+        run: npm test -w @hhs/mission-api
+
+      - name: Package tests (command-gateway)
+        run: npm test -w @hhs/command-gateway
+
+      - name: Typecheck
+        run: |
+          npm run typecheck -w @hhs/agent-core
+          npm run typecheck -w @hhs/command-gateway
+          npm run typecheck -w @hhs/mission-dashboard
+
+      - name: Lint dashboard
+        run: npm run lint -w @hhs/mission-dashboard
+
+      - name: Build dashboard
+        run: npm run build -w @hhs/mission-dashboard
